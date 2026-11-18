@@ -1,0 +1,71 @@
+/* ========================================================================
+   Creation home ambient glow
+   ------------------------------------------------------------------------
+   Only the empty creation homepage draws the neon haze. It is a pure CSS
+   layer on the existing container: no extra DOM node, no canvas, no blur
+   filter, so scrolling stays on the compositor. Visibility, colour and
+   strength are owned by the admin appearance setting, which writes
+   html[data-ambient-glow] and --ambient-glow-intensity (0..1).
+   ======================================================================== */
+:root {
+    --ambient-neon-magenta: #ff2d95;
+    --ambient-neon-cyan: #22d3ee;
+    --ambient-neon-violet: #7c3aed;
+    --ambient-glow-opacity: 0.55;
+}
+
+.dark {
+    --ambient-neon-magenta: #ff5cb0;
+    --ambient-neon-cyan: #5ce1f5;
+    --ambient-neon-violet: #9d6bff;
+    --ambient-glow-opacity: 1;
+}
+
+/* 亮色底上霓虹更容易糊住文字，只保留一层柔和色雾。 */
+html:not(.dark) {
+    --ambient-glow-opacity: 0.3;
+}
+
+/* 光影使用负层级伪元素：父级建立层叠上下文后，它会画在父背景之上、内容之下，
+   因此不需要给 .creation-home 换背景色，也不会盖住标题和输入区。 */
+html[data-ambient-glow="on"] .creation-home {
+    position: relative;
+    isolation: isolate;
+}
+
+html[data-ambient-glow="on"] .creation-home:has(.creation-launchpad)::before {
+    content: "";
+    position: absolute;
+    inset: -18%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(closest-side, color-mix(in srgb, var(--ambient-neon-magenta) 52%, transparent), transparent 72%) 14% 22% / 48% 54% no-repeat,
+        radial-gradient(closest-side, color-mix(in srgb, var(--ambient-neon-cyan) 46%, transparent), transparent 70%) 84% 30% / 44% 50% no-repeat,
+        radial-gradient(closest-side, color-mix(in srgb, var(--ambient-neon-violet) 44%, transparent), transparent 74%) 50% 92% / 62% 50% no-repeat;
+    /* 平方映射：默认 0.45 落在约 0.2，滑杆拉满才接近满强度，中段不会过曝。 */
+    opacity: calc(var(--ambient-glow-intensity, 0.45) * var(--ambient-glow-intensity, 0.45) * var(--ambient-glow-opacity));
+    animation: ambient-neon-drift 84s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+@keyframes ambient-neon-drift {
+    from {
+        transform: translate3d(-2.5%, -1.5%, 0) scale(1);
+    }
+
+    to {
+        transform: translate3d(3.5%, 2.5%, 0) scale(1.12);
+    }
+}
+
+/* 三级降级：系统减弱动态效果或用户选择无动效时停止漂移，光影本身仍可见。 */
+@media (prefers-reduced-motion: reduce) {
+    html[data-ambient-glow="on"] .creation-home:has(.creation-launchpad)::before {
+        animation: none !important;
+    }
+}
+
+.no-motion .creation-home:has(.creation-launchpad)::before {
+    animation: none !important;
+}

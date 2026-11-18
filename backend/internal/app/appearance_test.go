@@ -39,6 +39,9 @@ func TestAppearanceDefaultsPreserveBuiltInBrand(t *testing.T) {
 	if appearance.ActiveSkin.ID != defaultAppearanceSkinID || !appearance.ActiveSkin.Locked {
 		t.Fatalf("Appearance() active skin = %#v", appearance.ActiveSkin)
 	}
+	if appearance.DefaultTheme != defaultAppearanceThemeLight || appearance.AmbientGlowEnabled || appearance.AmbientGlowIntensity != defaultAmbientGlowIntensity {
+		t.Fatalf("Appearance() theme and glow defaults = %#v", appearance)
+	}
 	if appearance.ActiveSkin.Tokens.Light.SwitchChecked == appearance.ActiveSkin.Tokens.Light.SwitchUnchecked || appearance.ActiveSkin.Tokens.Dark.SwitchChecked == appearance.ActiveSkin.Tokens.Dark.SwitchUnchecked || appearance.ActiveSkin.Tokens.Light.DangerForeground == "" {
 		t.Fatalf("Appearance() state colors = %#v", appearance.ActiveSkin.Tokens)
 	}
@@ -319,6 +322,93 @@ func TestResetAppearanceRestoresBuiltInBrandWithoutDeletingResources(t *testing.
 	}
 	if auditCount != 1 {
 		t.Fatalf("reset audit count = %d, want 1", auditCount)
+	}
+}
+
+func TestAppearanceThemeAndAmbientGlowRoundTrip(t *testing.T) {
+	svc, _, _, admin := newAppearanceTestService(t)
+
+	updated, err := svc.UpdateAppearance(admin, AppearanceSetting{
+		BrandName:            defaultAppearanceBrandName,
+		BrandSlug:            defaultAppearanceBrandSlug,
+		AuthHeroTitle:        defaultAppearanceHeroTitle,
+		SkinID:               defaultAppearanceSkinID,
+		DefaultTheme:         defaultAppearanceThemeDark,
+		AmbientGlowEnabled:   true,
+		AmbientGlowIntensity: 72,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.DefaultTheme != defaultAppearanceThemeDark || !updated.AmbientGlowEnabled || updated.AmbientGlowIntensity != 72 {
+		t.Fatalf("UpdateAppearance() = %#v", updated)
+	}
+	if updated.Public.DefaultTheme != defaultAppearanceThemeDark || !updated.Public.AmbientGlowEnabled || updated.Public.AmbientGlowIntensity != 72 {
+		t.Fatalf("UpdateAppearance() public projection = %#v", updated.Public)
+	}
+
+	reloaded, err := svc.AdminAppearance(admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.DefaultTheme != defaultAppearanceThemeDark || !reloaded.AmbientGlowEnabled || reloaded.AmbientGlowIntensity != 72 {
+		t.Fatalf("AdminAppearance() = %#v", reloaded)
+	}
+
+	// 主动把强度拖到 0 必须保留，不能回弹成默认值。
+	zeroed, err := svc.UpdateAppearance(admin, AppearanceSetting{
+		BrandName:            defaultAppearanceBrandName,
+		BrandSlug:            defaultAppearanceBrandSlug,
+		AuthHeroTitle:        defaultAppearanceHeroTitle,
+		SkinID:               defaultAppearanceSkinID,
+		DefaultTheme:         defaultAppearanceThemeLight,
+		AmbientGlowIntensity: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if zeroed.AmbientGlowIntensity != 0 || zeroed.DefaultTheme != defaultAppearanceThemeLight || zeroed.AmbientGlowEnabled {
+		t.Fatalf("UpdateAppearance() zero intensity = %#v", zeroed)
+	}
+}
+
+func TestAppearanceRejectsInvalidThemeAndGlowIntensity(t *testing.T) {
+	svc, _, _, admin := newAppearanceTestService(t)
+	base := AppearanceSetting{
+		BrandName:     defaultAppearanceBrandName,
+		BrandSlug:     defaultAppearanceBrandSlug,
+		AuthHeroTitle: defaultAppearanceHeroTitle,
+		SkinID:        defaultAppearanceSkinID,
+	}
+
+	invalidTheme := base
+	invalidTheme.DefaultTheme = "sepia"
+	if _, err := svc.UpdateAppearance(admin, invalidTheme); err == nil || !strings.Contains(err.Error(), "默认主题") {
+		t.Fatalf("UpdateAppearance() invalid theme error = %v", err)
+	}
+
+	for _, intensity := range []int{-1, 101} {
+		invalidIntensity := base
+		invalidIntensity.AmbientGlowIntensity = intensity
+		if _, err := svc.UpdateAppearance(admin, invalidIntensity); err == nil || !strings.Contains(err.Error(), "光影强度") {
+			t.Fatalf("UpdateAppearance() intensity %d error = %v", intensity, err)
+		}
+	}
+}
+
+func TestAppearanceLegacyRecordBackfillsThemeAndGlowDefaults(t *testing.T) {
+	svc, db, _, _ := newAppearanceTestService(t)
+	legacy := model.SystemSetting{Key: appearanceSettingKey, ValueJSON: `{"schemaVersion":12,"brandName":"旧品牌","skinId":"classic"}`}
+	if err := db.Create(&legacy).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	appearance, err := svc.Appearance()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if appearance.DefaultTheme != defaultAppearanceThemeLight || appearance.AmbientGlowEnabled || appearance.AmbientGlowIntensity != defaultAmbientGlowIntensity {
+		t.Fatalf("legacy appearance theme and glow = %#v", appearance)
 	}
 }
 

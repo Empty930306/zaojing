@@ -34,8 +34,10 @@ const (
 )
 
 const (
+	// 皮肤库版本只控制内置皮肤补齐的迁移闸门，外观合同版本单独演进：
+	// 之后新增外观字段只改 appearanceSchemaVersion，不会重复补一次内置皮肤。
 	appearanceThemePackLibraryVersion       = 12
-	appearanceSchemaVersion                 = appearanceThemePackLibraryVersion
+	appearanceSchemaVersion                 = 13
 	appearanceLogoMaxBytes            int64 = 5 << 20
 	appearancePosterMaxBytes          int64 = 10 << 20
 	appearanceVideoMaxBytes           int64 = 256 << 20
@@ -50,6 +52,10 @@ const (
 	defaultAppearancePosterURL = "https://i0.hdslb.com/bfs/aitool/aniforge/image/02933f26-5f1b-49ff-a811-b7f95ee5e5b8_m1hc-u0-sau.jpg"
 	defaultAppearanceHeroTitle = "让一个故事，\n从文字走向银幕。"
 	defaultRedeemPurchaseURL   = "" // 默认不配置购买链接，前端为空时不展示入口
+
+	defaultAppearanceThemeLight = "light"
+	defaultAppearanceThemeDark  = "dark"
+	defaultAmbientGlowIntensity = 45
 )
 
 type AppearanceSetting struct {
@@ -68,6 +74,9 @@ type AppearanceSetting struct {
 	AuthVideoAutoplay         bool                  `json:"authVideoAutoplay"`
 	SkinID                    string                `json:"skinId"`
 	SkinThemes                []AppearanceSkinTheme `json:"skinThemes"`
+	DefaultTheme              string                `json:"defaultTheme"`
+	AmbientGlowEnabled        bool                  `json:"ambientGlowEnabled"`
+	AmbientGlowIntensity      int                   `json:"ambientGlowIntensity"`
 	SEOTitle                  string                `json:"seoTitle"`
 	SEODescription            string                `json:"seoDescription"`
 	SEOKeywords               string                `json:"seoKeywords"`
@@ -93,6 +102,9 @@ type PublicAppearanceSetting struct {
 	AuthVideoAutoplay         bool                `json:"authVideoAutoplay"`
 	SkinID                    string              `json:"skinId"`
 	ActiveSkin                AppearanceSkinTheme `json:"activeSkin"`
+	DefaultTheme              string              `json:"defaultTheme"`
+	AmbientGlowEnabled        bool                `json:"ambientGlowEnabled"`
+	AmbientGlowIntensity      int                 `json:"ambientGlowIntensity"`
 	SEOTitle                  string              `json:"seoTitle"`
 	SEODescription            string              `json:"seoDescription"`
 	SEOKeywords               string              `json:"seoKeywords"`
@@ -120,16 +132,18 @@ type AdminAppearanceSetting struct {
 
 func defaultAppearanceSetting() AppearanceSetting {
 	return AppearanceSetting{
-		Canvas:            defaultCanvasAppearance(),
-		SchemaVersion:     appearanceSchemaVersion,
-		BrandName:         defaultAppearanceBrandName,
-		BrandSlug:         defaultAppearanceBrandSlug,
-		AuthHeroTitle:     defaultAppearanceHeroTitle,
-		AuthVideoAutoplay: true,
-		LogoFrameEnabled:  true,
-		SkinID:            defaultAppearanceSkinID,
-		SkinThemes:        defaultAppearanceSkinThemes(),
-		RedeemPurchaseURL: defaultRedeemPurchaseURL,
+		Canvas:               defaultCanvasAppearance(),
+		SchemaVersion:        appearanceSchemaVersion,
+		BrandName:            defaultAppearanceBrandName,
+		BrandSlug:            defaultAppearanceBrandSlug,
+		AuthHeroTitle:        defaultAppearanceHeroTitle,
+		AuthVideoAutoplay:    true,
+		LogoFrameEnabled:     true,
+		SkinID:               defaultAppearanceSkinID,
+		SkinThemes:           defaultAppearanceSkinThemes(),
+		DefaultTheme:         defaultAppearanceThemeLight,
+		AmbientGlowIntensity: defaultAmbientGlowIntensity,
+		RedeemPurchaseURL:    defaultRedeemPurchaseURL,
 	}
 }
 
@@ -215,6 +229,10 @@ func (s *Service) UpdateAppearance(actor *model.User, value AppearanceSetting) (
 		value.SkinThemes = defaultAppearanceSkinThemes()
 	}
 	value.SkinThemes = normalizeAppearanceSkinThemes(value.SkinThemes)
+	value.DefaultTheme = strings.TrimSpace(value.DefaultTheme)
+	if value.DefaultTheme == "" {
+		value.DefaultTheme = defaultAppearanceThemeLight
+	}
 	value.SEOTitle = normalizeAppearanceSingleLine(value.SEOTitle)
 	value.SEODescription = normalizeAppearanceCopy(value.SEODescription)
 	value.SEOKeywords = normalizeAppearanceSingleLine(value.SEOKeywords)
@@ -472,6 +490,8 @@ func (s *Service) readAppearance() (*model.SystemSetting, AppearanceSetting, err
 	if storedSchemaVersion < appearanceThemePackLibraryVersion {
 		value.SkinThemes = appendMissingAppearanceThemePackSkins(value.SkinThemes)
 	}
+	value.DefaultTheme = normalizeAppearanceTheme(value.DefaultTheme)
+	value.AmbientGlowIntensity = normalizeAmbientGlowIntensity(value.AmbientGlowIntensity)
 	value.SEOTitle = normalizeAppearanceSingleLine(value.SEOTitle)
 	value.SEODescription = normalizeAppearanceCopy(value.SEODescription)
 	value.SEOKeywords = normalizeAppearanceSingleLine(value.SEOKeywords)
@@ -520,9 +540,39 @@ func (s *Service) appearanceAssetAvailable(slot string, resourceID string) bool 
 	return err == nil && !info.IsDir()
 }
 
+// 空值回落到浅色，与 SkinID 的缺省处理一致；非法值交给 validateAppearanceSetting 拒绝。
+func normalizeAppearanceTheme(value string) string {
+	switch strings.TrimSpace(value) {
+	case defaultAppearanceThemeDark:
+		return defaultAppearanceThemeDark
+	case defaultAppearanceThemeLight:
+		return defaultAppearanceThemeLight
+	default:
+		return defaultAppearanceThemeLight
+	}
+}
+
+// 只做范围收敛；缺省值由 defaultAppearanceSetting 预填，因此老记录 JSON 中没有
+// 该字段时仍然得到默认强度，而管理员主动拖到 0 也会被如实保留。
+func normalizeAmbientGlowIntensity(value int) int {
+	if value < 0 {
+		return 0
+	}
+	if value > 100 {
+		return 100
+	}
+	return value
+}
+
 func validateAppearanceSetting(value AppearanceSetting) error {
 	if value.BrandName == "" || utf8.RuneCountInString(value.BrandName) > 40 {
 		return BadAuthRequest("品牌名称必须为 1 到 40 个字符")
+	}
+	if value.DefaultTheme != defaultAppearanceThemeLight && value.DefaultTheme != defaultAppearanceThemeDark {
+		return BadAuthRequest("默认主题必须是 light 或 dark")
+	}
+	if value.AmbientGlowIntensity < 0 || value.AmbientGlowIntensity > 100 {
+		return BadAuthRequest("光影强度必须在 0 到 100 之间")
 	}
 	for _, char := range value.BrandName {
 		if unicode.IsControl(char) {
@@ -730,30 +780,33 @@ func publicAppearanceSetting(setting *model.SystemSetting, value AppearanceSetti
 		revision = strconv.FormatInt(setting.UpdatedAt.UTC().UnixNano(), 36)
 	}
 	result := &PublicAppearanceSetting{
-		Updates:             publicUpdateAnnouncement(value.Updates, revision),
-		Canvas:              value.Canvas,
-		SchemaVersion:       appearanceSchemaVersion,
-		BrandName:           value.BrandName,
-		BrandSlug:           value.BrandSlug,
-		AuthHeroTitle:       value.AuthHeroTitle,
-		AuthHeroDescription: value.AuthHeroDescription,
-		LogoURL:             defaultAppearanceLogoURL,
-		DarkLogoURL:         defaultAppearanceLogoURL,
-		LogoFrameEnabled:    value.LogoFrameEnabled,
-		AuthVideoURL:        defaultAppearanceVideoURL,
-		AuthVideoPosterURL:  defaultAppearancePosterURL,
-		AuthVideoAutoplay:   value.AuthVideoAutoplay,
-		SkinID:              value.SkinID,
-		ActiveSkin:          activeAppearanceSkin(value.SkinThemes, value.SkinID),
-		SEOTitle:            effectiveAppearanceSEOTitle(value),
-		SEODescription:      effectiveAppearanceSEODescription(value),
-		SEOKeywords:         value.SEOKeywords,
-		FooterCopyright:     effectiveAppearanceCopyright(value),
-		ICPFilingEnabled:    value.ICPFilingEnabled && value.ICPFilingNumber != "",
-		ICPFilingNumber:     value.ICPFilingNumber,
-		RedeemPurchaseURL:   safeAppearancePurchaseURL(value.RedeemPurchaseURL),
-		Configured:          setting != nil,
-		Revision:            revision,
+		Updates:              publicUpdateAnnouncement(value.Updates, revision),
+		Canvas:               value.Canvas,
+		SchemaVersion:        appearanceSchemaVersion,
+		BrandName:            value.BrandName,
+		BrandSlug:            value.BrandSlug,
+		AuthHeroTitle:        value.AuthHeroTitle,
+		AuthHeroDescription:  value.AuthHeroDescription,
+		LogoURL:              defaultAppearanceLogoURL,
+		DarkLogoURL:          defaultAppearanceLogoURL,
+		LogoFrameEnabled:     value.LogoFrameEnabled,
+		AuthVideoURL:         defaultAppearanceVideoURL,
+		AuthVideoPosterURL:   defaultAppearancePosterURL,
+		AuthVideoAutoplay:    value.AuthVideoAutoplay,
+		SkinID:               value.SkinID,
+		ActiveSkin:           activeAppearanceSkin(value.SkinThemes, value.SkinID),
+		DefaultTheme:         value.DefaultTheme,
+		AmbientGlowEnabled:   value.AmbientGlowEnabled,
+		AmbientGlowIntensity: value.AmbientGlowIntensity,
+		SEOTitle:             effectiveAppearanceSEOTitle(value),
+		SEODescription:       effectiveAppearanceSEODescription(value),
+		SEOKeywords:          value.SEOKeywords,
+		FooterCopyright:      effectiveAppearanceCopyright(value),
+		ICPFilingEnabled:     value.ICPFilingEnabled && value.ICPFilingNumber != "",
+		ICPFilingNumber:      value.ICPFilingNumber,
+		RedeemPurchaseURL:    safeAppearancePurchaseURL(value.RedeemPurchaseURL),
+		Configured:           setting != nil,
+		Revision:             revision,
 	}
 	if setting != nil {
 		result.UpdatedAt = setting.UpdatedAt

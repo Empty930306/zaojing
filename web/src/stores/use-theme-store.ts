@@ -31,3 +31,24 @@ export const useThemeStore = create<ThemeStore>()(
         },
     ),
 );
+
+/** 站点默认主题的缓存，index.html 首帧脚本读取它避免深色站闪白。 */
+const SITE_DEFAULT_THEME_CACHE_KEY = "yingce:site_theme_default";
+/** 已经强制应用过的默认主题值；相同值不再重复覆盖用户手动选择。 */
+const SITE_DEFAULT_THEME_APPLIED_KEY = "yingce:site_theme_default_applied";
+
+/**
+ * 站点默认主题由管理员在后台配置，修改后对全站用户强制生效一次。
+ * 之后用户自己切换主题会保留，直到管理员再次修改默认值。
+ */
+export function applySiteDefaultTheme(next: ThemeName) {
+    if (!VALID_THEMES.includes(next)) return;
+    try {
+        localStorage.setItem(SITE_DEFAULT_THEME_CACHE_KEY, next);
+        if (localStorage.getItem(SITE_DEFAULT_THEME_APPLIED_KEY) === next) return;
+        localStorage.setItem(SITE_DEFAULT_THEME_APPLIED_KEY, next);
+    } catch {
+        // 隐私模式下 localStorage 不可用时只在本次会话内生效。
+    }
+    useThemeStore.getState().setTheme(next);
+}

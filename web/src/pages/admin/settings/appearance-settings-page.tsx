@@ -4,13 +4,13 @@ import { AdminStatusBadge, SettingsSectionCard } from "@/pages/admin/components/
 import { AdminPageFrame } from "@/pages/admin/components/admin-shell";
 import { Palette, RefreshCw, Undo2, RotateCcw, Save, Sun, Moon, MonitorPlay, Globe2, Search, Copyright, Type, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Switch } from "@/pages/admin/ui/controls";
+import { SegmentedControl, Switch } from "@/pages/admin/ui/controls";
 import { WelcomeSetting } from "@/pages/admin/settings/components/welcome-setting";
 import { SkinThemeEditor } from "@/pages/admin/settings/components/skin-theme-editor";
 import { CanvasAppearanceEditor } from "./components/canvas-appearance-editor";
 import { UpdateAnnouncementEditor } from "./components/update-announcement-editor";
 import { DEFAULT_UPDATE_ANNOUNCEMENT, normalizeUpdateAnnouncement, validateUpdateAnnouncement, type UpdateAnnouncement } from "@/lib/update-announcement";
-import { App, Button, Tabs, Form, Input } from "antd";
+import { App, Button, Tabs, Form, Input, Slider } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker } from "react-router";
 import { cloneSkinDefinition, DEFAULT_CLASSIC_SKIN, normalizeSkinDefinition, type SkinDefinition, duplicateSkinDefinition } from "@/lib/skin-themes";
@@ -173,6 +173,9 @@ export default function AppearanceSettingsPage() {
     const [logoFrameEnabled, setLogoFrameEnabled] = useState(true);
     const [skinId, setSkinId] = useState("classic");
     const [skinThemes, setSkinThemes] = useState<SkinDefinition[]>([DEFAULT_CLASSIC_SKIN]);
+    const [defaultTheme, setDefaultTheme] = useState<"light" | "dark">("light");
+    const [ambientGlowEnabled, setAmbientGlowEnabled] = useState(false);
+    const [ambientGlowIntensity, setAmbientGlowIntensity] = useState(45);
     const [seoTitle, setSeoTitle] = useState("");
     const [seoDescription, setSeoDescription] = useState("");
     const [seoKeywords, setSeoKeywords] = useState("");
@@ -208,6 +211,9 @@ export default function AppearanceSettingsPage() {
             logoFrameEnabled !== setting?.logoFrameEnabled ||
             skinId !== setting?.skinId ||
             JSON.stringify(skinThemes) !== JSON.stringify(setting?.skinThemes) ||
+            defaultTheme !== (setting?.defaultTheme === "dark" ? "dark" : "light") ||
+            ambientGlowEnabled !== Boolean(setting?.ambientGlowEnabled) ||
+            ambientGlowIntensity !== (setting?.ambientGlowIntensity ?? 45) ||
             normalizeSingleLine(seoTitle) !== setting?.seoTitle ||
             normalizeDraftCopy(seoDescription) !== setting?.seoDescription ||
             normalizeSingleLine(seoKeywords) !== setting?.seoKeywords ||
@@ -233,6 +239,9 @@ export default function AppearanceSettingsPage() {
         setLogoFrameEnabled(value.logoFrameEnabled);
         setSkinThemes(themes);
         setSkinId(selectedID);
+        setDefaultTheme(value.defaultTheme === "dark" ? "dark" : "light");
+        setAmbientGlowEnabled(Boolean(value.ambientGlowEnabled));
+        setAmbientGlowIntensity(value.ambientGlowIntensity ?? 45);
         setSeoTitle(value.seoTitle);
         setSeoDescription(value.seoDescription);
         setSeoKeywords(value.seoKeywords);
@@ -513,6 +522,9 @@ export default function AppearanceSettingsPage() {
                 authVideoAutoplay,
                 skinId,
                 skinThemes,
+                defaultTheme,
+                ambientGlowEnabled,
+                ambientGlowIntensity,
                 seoTitle: nextSeoTitle,
                 seoDescription: nextSeoDescription,
                 seoKeywords: nextSeoKeywords,
@@ -916,6 +928,34 @@ export default function AppearanceSettingsPage() {
                                         description="经典黑白采用黑白底色与紫蓝渐变主按钮；复制后可调整浅色、深色、按钮填充及控件参数，所有修改统一保存。"
                                         status={<AdminStatusBadge label={selectedSkin.name} tone="info" />}
                                     >
+                                        <div className="admin-appearance-section-form">
+                                            <Form layout="vertical" requiredMark={false} disabled={saving || refreshing || restoring}>
+                                                <Form.Item label="默认明暗主题" extra="保存后对所有访客生效一次；用户之后手动切换的主题会保留，直到再次修改此默认值。">
+                                                    <SegmentedControl<"light" | "dark">
+                                                        ariaLabel="默认明暗主题"
+                                                        value={defaultTheme}
+                                                        onChange={setDefaultTheme}
+                                                        options={[
+                                                            { value: "light", label: "浅色", icon: <Sun className="size-3.5" aria-hidden /> },
+                                                            { value: "dark", label: "深色", icon: <Moon className="size-3.5" aria-hidden /> },
+                                                        ]}
+                                                    />
+                                                </Form.Item>
+                                                <div className="admin-appearance-logo-frame-option">
+                                                    <div className="admin-appearance-logo-frame-copy">
+                                                        <strong>首页光影效果</strong>
+                                                        <p id="appearance-ambient-glow-help">开启后创作首页背景显示缓慢漂移的霓虹光影；仅首页空态显示，进入对话后自动收起。系统开启「减弱动态效果」时保持静止。</p>
+                                                    </div>
+                                                    <div className="admin-appearance-logo-frame-control">
+                                                        <span>{ambientGlowEnabled ? "已开启" : "已关闭"}</span>
+                                                        <Switch checked={ambientGlowEnabled} aria-label="首页光影效果" aria-describedby="appearance-ambient-glow-help" onChange={setAmbientGlowEnabled} />
+                                                    </div>
+                                                </div>
+                                                <Form.Item className="admin-appearance-glow-intensity" label="光影强度" extra="0–100。数值越高霓虹越亮，过高会盖住正文与卡片。">
+                                                    <Slider min={0} max={100} value={ambientGlowIntensity} disabled={!ambientGlowEnabled} onChange={setAmbientGlowIntensity} aria-label="光影强度" />
+                                                </Form.Item>
+                                            </Form>
+                                        </div>
                                         <SkinThemeEditor
                                             themes={skinThemes}
                                             selectedID={skinId}

@@ -7,6 +7,7 @@ import { composeDocumentTitle } from "@/lib/document-title";
 import { applySkinTheme, DEFAULT_CLASSIC_SKIN, normalizeSkinDefinition } from "@/lib/skin-themes";
 import { applyThemeBrandVariables, applyThemePackCanvas } from "@/themes/apply";
 import { useDocumentTitleStore } from "@/stores/use-document-title-store";
+import { applySiteDefaultTheme } from "@/stores/use-theme-store";
 
 export const DEFAULT_PUBLIC_APPEARANCE: PublicAppearance = {
     updates: DEFAULT_UPDATE_ANNOUNCEMENT,
@@ -24,6 +25,9 @@ export const DEFAULT_PUBLIC_APPEARANCE: PublicAppearance = {
     authVideoAutoplay: true,
     skinId: "classic",
     activeSkin: DEFAULT_CLASSIC_SKIN,
+    defaultTheme: "light",
+    ambientGlowEnabled: false,
+    ambientGlowIntensity: 45,
     seoTitle: "影策",
     seoDescription: "影策，面向 AI 影视与短剧创作的工作台。",
     seoKeywords: "",
@@ -96,6 +100,9 @@ export function normalizePublicAppearance(value?: Partial<PublicAppearance> | nu
         authVideoAutoplay: value?.authVideoAutoplay !== false,
         skinId: normalizeSkinDefinition(value?.activeSkin).id,
         activeSkin: normalizeSkinDefinition(value?.activeSkin),
+        defaultTheme: value?.defaultTheme === "dark" ? "dark" : "light",
+        ambientGlowEnabled: Boolean(value?.ambientGlowEnabled),
+        ambientGlowIntensity: normalizeAmbientGlowIntensity(value?.ambientGlowIntensity),
         seoTitle,
         seoDescription,
         seoKeywords,
@@ -118,11 +125,20 @@ function normalizeAppearanceCopy(value: unknown, fallback: string, allowEmpty = 
     return normalized || (allowEmpty ? "" : fallback);
 }
 
+/** 光影强度 0–100，缺省 45；非有限值回落到默认，0 保留为「关到底」。 */
+export function normalizeAmbientGlowIntensity(value: unknown) {
+    const parsed = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(parsed)) return 45;
+    return Math.min(100, Math.max(0, Math.round(parsed)));
+}
+
 export function commitPublicAppearance(value?: Partial<PublicAppearance> | null) {
     const appearance = normalizePublicAppearance(value);
     applyThemePackCanvas(appearance.activeSkin.id);
     applyThemeBrandVariables(appearance.brandName);
     useAppearanceStore.getState().setAppearance(appearance);
+    // 站点默认主题在应用皮肤前生效：皮肤按当前明暗模式取 token。
+    applySiteDefaultTheme(appearance.defaultTheme);
     applySkinTheme(appearance.activeSkin, typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light");
     applyAppearanceMetadata(appearance);
     return appearance;
@@ -130,6 +146,9 @@ export function commitPublicAppearance(value?: Partial<PublicAppearance> | null)
 
 export function applyAppearanceMetadata(appearance: PublicAppearance, targetDocument: Document | undefined = typeof document === "undefined" ? undefined : document) {
     if (!targetDocument) return;
+    // 首页霓虹光影由后台开关驱动，CSS 只看这两个根节点标记与强度变量。
+    targetDocument.documentElement.dataset.ambientGlow = appearance.ambientGlowEnabled ? "on" : "off";
+    targetDocument.documentElement.style.setProperty("--ambient-glow-intensity", String(appearance.ambientGlowIntensity / 100));
     targetDocument.title = documentTitleFor(appearance);
     setMeta(targetDocument, "name", "description", appearance.seoDescription);
     setMeta(targetDocument, "name", "keywords", appearance.seoKeywords);

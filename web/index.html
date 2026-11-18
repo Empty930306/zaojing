@@ -81,7 +81,9 @@
         <script>
             try {
                 var s = JSON.parse(localStorage.getItem("yingce:theme_store") || "{}");
-                var t = s.state && s.state.theme === "dark" ? "dark" : "light";
+                // 用户存过就以用户选择为准；否则用站点默认主题缓存，避免深色站首帧闪白。
+                var d = localStorage.getItem("yingce:site_theme_default");
+                var t = s.state && s.state.theme === "dark" ? "dark" : s.state && s.state.theme === "light" ? "light" : d === "dark" ? "dark" : "light";
                 document.documentElement.classList.toggle("dark", t === "dark");
                 document.documentElement.style.colorScheme = t;
             } catch (e) {}

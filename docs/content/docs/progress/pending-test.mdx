@@ -5728,3 +5728,15 @@ URL 使用归属校验后的资源访问地址，本地存储也可签发厂商�
 - 已修复：脚本加载失败或十秒内无响应时显示重试入口，重试重建失败的脚本节点；验证过期、出错与超时均清除旧令牌。容器跨越 300px 宽度时切换 compact／flexible 实例，忽略旧实例及卸载后的回调。
 - 自动化回归使用真实组件与受控脚本事件，不连接 Cloudflare、不消耗真实验证凭据。
 - [ ] 真实站点密钥下复核加载失败、重新验证、320px／390px 与桌面宽度切换；Safari、Firefox 和手机真机待验收。
+
+## 站点默认明暗主题与创作首页霓虹光影
+
+- 已实现：后台「站点及外观 → 皮肤主题」新增「默认明暗主题」分段控件、「首页光影效果」开关和「光影强度」滑杆（0–100，关闭时禁用）。三项随其他外观配置统一保存，外观合同版本提升到 13，`appearanceThemePackLibraryVersion` 保持 12，不重复补齐内置皮肤。
+- 已实现：默认主题采用「变更一次强制一次」语义。`localStorage["yingce:site_theme_default_applied"]` 记录已应用的默认值，值变化时对所有浏览器强制应用一次；用户之后手动切换的主题保留，直到管理员再次修改默认值。`web/index.html` 首帧脚本优先用户选择、其次站点默认值，深色站首帧不闪白。
+- 已实现：光影为纯 CSS 三层 `radial-gradient` 伪元素，挂在 `.creation-home` 上，不使用 canvas、不新增 DOM、不用 `filter: blur()`，动画只改 `transform`。由 `html[data-ambient-glow]` 与 `--ambient-glow-intensity` 驱动；作用域为 `.creation-home:has(.creation-launchpad)`，发起对话后 launchpad 卸载即消失；`prefers-reduced-motion` 与 `.no-motion` 下停止漂移。默认关闭，升级后现网观感不变。
+- 已验证：`cd backend && go test ./internal/app -run 'Appearance' -count=1`（含默认值、往返保存、非法主题与强度越界拒绝、旧记录补齐）、`bun run typecheck`、`bun run lint`、`bun test test/site-default-theme.test.ts test/canvas-theme-isolation.test.ts test/appearance-bootstrap.test.ts` 通过。
+- 已验证：真实 SQLite + 新后端 + Vite 代理验证后台三项控件保存（服务端返回 `schemaVersion: 13`，强度 45/70 等值往返一致）；真实浏览器确认深色站首帧为 `#0f0f11` 不闪白、光影在深色与浅色下可见、强度平方映射生效（0.45→0.2025、0.7→0.49、1→1）、`.no-motion` 停止动画、移除 launchpad 后伪元素消失、资产/短剧/插件路由无 `.creation-home` 因而不绘制光影。
+- [ ] 在真实部署上用无痕窗口验收：后台设深色 + 开光影 + 强度 70 → 首屏深色不闪白、霓虹缓慢漂移 → 手动切浅色 → 刷新保持浅色 → 后台把默认主题改成浅色 → 刷新被强制成浅色。
+- [ ] 系统开启「减弱动态效果」后核对光影静止但仍可见；检查 1920px 与 390px 两档宽度下光影不溢出、不遮挡底部输入区和灵感卡片。
+- [ ] 发起一次对话，确认光影随 launchpad 卸载消失且对话区背景干净；切换内置皮肤（青瓷、暖柿、霓光紫、龙影水墨、云鹤仙观）后核对霓虹与各皮肤底色叠加的可读性。
+- [ ] 推送前按 AGENTS.md 运行 `bun scripts/verify-before-push.mjs`（本轮未运行）。

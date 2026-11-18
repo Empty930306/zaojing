@@ -556,6 +556,22 @@ CANVAS_BACKEND_DATA_DIR=/明确的数据目录 ./migrate-schema repair-canvas-re
 
 `GET /public/appearance` 返回当前 `activeSkin`；管理员通过 `GET/PUT /admin/settings/appearance` 读取、保存完整主题库。外观合同版本 8 新增 `tokens.buttons.light/dark`，字段为 `mode`（`solid|gradient`）、整数 `angle`（0–360）、HEX 色值 `start/end`、`hoverStart/hoverEnd`、`activeStart/activeEnd`、`foreground`。纯色模式使用既有主操作颜色，渐变仅用于主按钮。非法模式、角度、色值或修改锁定经典主题均拒绝保存；整块缺失的旧配置按主题身份补齐。此变更不增加数据表迁移。
 
+### 默认明暗主题与首页光影（外观合同版本 13）
+
+外观合同版本 13 在公开与管理员外观中都新增三个字段，仍复用 `system_settings.appearance` JSON，不新增数据表迁移：
+
+| 字段 | 类型 | 默认 | 约束 |
+| --- | --- | --- | --- |
+| `defaultTheme` | `light \| dark` | `light` | 其他值返回 HTTP 400 |
+| `ambientGlowEnabled` | boolean | `false` | — |
+| `ambientGlowIntensity` | 0–100 整数 | `45` | 超出范围返回 HTTP 400 |
+
+`defaultTheme` 是站点默认明暗主题。前端把最近一次已知的默认值写入 `localStorage["yingce:site_theme_default_applied"]`，值变化时对当前浏览器强制应用一次；用户随后手动切换的主题保留，直到管理员再次修改默认值。`web/index.html` 的首帧脚本优先读用户选择、其次读 `localStorage["yingce:site_theme_default"]`，深色站首帧不会闪白。
+
+`ambientGlowEnabled` / `ambientGlowIntensity` 只驱动创作首页空态的赛博霓虹背景：开关关闭时 `html[data-ambient-glow="off"]` 不绘制伪元素，开启时按 `--ambient-glow-intensity`（强度 / 100）缩放透明度。光影只在存在 `.creation-launchpad` 时出现，发起对话后随空态一起消失；`prefers-reduced-motion` 与 `.no-motion` 下停止漂移动画但仍保留静态光影。默认关闭，升级后现网观感不变。
+
+`appearanceSchemaVersion` 提升到 13，`appearanceThemePackLibraryVersion` 仍为 12：内置皮肤补齐只看后者，新增外观字段不会再触发一次皮肤库迁移。缺少这三个字段的旧记录读取时补默认值（浅色、关闭、45），不会误判为管理员把强度调到 0。
+
 ## 模型规格报价
 
 ### 管理员批量调价

@@ -20,6 +20,9 @@ export type PublicAppearance = {
     authVideoAutoplay: boolean;
     skinId: string;
     activeSkin: SkinDefinition;
+    defaultTheme: "light" | "dark";
+    ambientGlowEnabled: boolean;
+    ambientGlowIntensity: number;
     seoTitle: string;
     seoDescription: string;
     seoKeywords: string;
@@ -52,6 +55,9 @@ export type AdminAppearance = {
     authVideoAutoplay: boolean;
     skinId: string;
     skinThemes: SkinDefinition[];
+    defaultTheme: "light" | "dark";
+    ambientGlowEnabled: boolean;
+    ambientGlowIntensity: number;
     seoTitle: string;
     seoDescription: string;
     seoKeywords: string;
@@ -129,6 +135,9 @@ export async function updateAdminAppearance(
         | "authVideoAutoplay"
         | "skinId"
         | "skinThemes"
+        | "defaultTheme"
+        | "ambientGlowEnabled"
+        | "ambientGlowIntensity"
         | "seoTitle"
         | "seoDescription"
         | "seoKeywords"
