@@ -227,7 +227,7 @@ export const frFR: DeepStringRecord<typeof zhCN> = {
         quickEditPlaceholder: "Continuez à décrire votre idée…",
         expandComposer: "Ouvrir l'éditeur complet",
         launchpadLabel: "Commencer à créer",
-        heading: "Parlez de vos idées avec {{brand}}",
+        heading: "Votre studio IA de cinéma et de mini-séries",
         subheading: "Partez d'une scène, d'un personnage ou d'une simple phrase.",
         viewHistory: "Voir l'historique",
         hallLoading: "Préparation de la galerie d'inspiration…",

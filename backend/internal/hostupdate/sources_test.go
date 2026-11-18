@@ -250,7 +250,7 @@ func TestSourcesMirrorDigestsAndComposeEnvironment(t *testing.T) {
 	sources := Sources{"direct", "nju"}
 	images := sources.images(m.config.Repository, "v2.0.0")
 	for _, image := range []string{images.backend, images.web, images.agent} {
-		if !strings.HasPrefix(image, "ghcr.nju.edu.cn/ddcat-ai/") || !strings.HasSuffix(image, ":2.0.0") {
+		if !strings.HasPrefix(image, "ghcr.nju.edu.cn/empty930306/") || !strings.HasSuffix(image, ":2.0.0") {
 			t.Fatal(image)
 		}
 	}

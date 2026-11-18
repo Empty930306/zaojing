@@ -223,7 +223,7 @@ export const zhCN = {
         quickEditPlaceholder: "继续描述你的创作想法…",
         expandComposer: "展开完整创作区",
         launchpadLabel: "开始创作",
-        heading: "和{{brand}}聊聊创作想法",
+        heading: "你的专属 AI 影视创作工作台",
         subheading: "从一个画面、一个角色或一句话开始。",
         viewHistory: "查看历史对话",
         hallLoading: "正在准备灵感大厅…",
