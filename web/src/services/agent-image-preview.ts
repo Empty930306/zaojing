@@ -1,11 +1,12 @@
 import { imageToDataUrl } from "@/services/image-storage";
 import { resourceIdFromStorageKey, resourceStorageKey, uploadResourceFile } from "@/services/api/resources";
 import { getActiveUserScope } from "@/lib/user-scope";
+import { sha256Hex } from "@/lib/sha256";
 
 // 预算只作用于视觉分析副本，不修改原素材。
 export async function agentImagePreviews(images: Parameters<typeof imageToDataUrl>[0][]): Promise<string[]> {
     if (!images.length) return [];
-    const limit = Math.min(256 * 1024, Math.floor(2 * 1024 * 1024 / images.length));
+    const limit = Math.min(256 * 1024, Math.floor((2 * 1024 * 1024) / images.length));
     if (limit < 16 * 1024) throw new Error("本次参考图片过多，请分批选择图片后继续。");
     const previews: string[] = [];
     // 顺序解码，避免多张原图同时占用内存。
@@ -14,8 +15,11 @@ export async function agentImagePreviews(images: Parameters<typeof imageToDataUr
         if (!url) throw new Error("参考图片无法读取，请重新选择图片。");
         const image = new Image();
         image.src = url;
-        try { await image.decode(); }
-        catch { throw new Error("参考图片无法解码，请重新选择图片。"); }
+        try {
+            await image.decode();
+        } catch {
+            throw new Error("参考图片无法解码，请重新选择图片。");
+        }
         const canvas = document.createElement("canvas");
         try {
             const context = canvas.getContext("2d");
@@ -55,8 +59,7 @@ export async function inspectAgentImage(source: Parameters<typeof imageToDataUrl
     const response = await fetch(dataUrl);
     if (!response.ok) throw new Error("读取看图素材失败");
     const blob = await response.blob();
-    const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
-    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const hash = await sha256Hex(new Uint8Array(await blob.arrayBuffer()));
     if (scope !== getActiveUserScope()) throw new DOMException("账号已切换", "AbortError");
     const resource = await uploadResourceFile(blob, "image", { fileName: `agent-inspect-${hash.slice(0, 12)}.${blob.type === "image/png" ? "png" : "jpg"}`, idempotencyKey: `agent-inspect:${hash}` });
     if (scope !== getActiveUserScope()) throw new DOMException("账号已切换", "AbortError");
@@ -71,7 +74,8 @@ async function encodeAgentImage(source: Parameters<typeof imageToDataUrl>[0], de
         if (url.length > 6 * 1024 * 1024) throw new Error("原图超过本次看图预算，请改用 crop 分区检查，不要降低细节精度。");
         return url;
     }
-    if (!crop || ![crop.x, crop.y, crop.width, crop.height].every((value) => typeof value === "number" && Number.isFinite(value)) || crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0 || crop.x + crop.width > 1 || crop.y + crop.height > 1) throw new Error("裁剪范围必须是 0 到 1 的归一化坐标，且完整位于原图内。");
+    if (!crop || ![crop.x, crop.y, crop.width, crop.height].every((value) => typeof value === "number" && Number.isFinite(value)) || crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0 || crop.x + crop.width > 1 || crop.y + crop.height > 1)
+        throw new Error("裁剪范围必须是 0 到 1 的归一化坐标，且完整位于原图内。");
     const image = new Image();
     image.src = url;
     await image.decode();
@@ -85,5 +89,9 @@ async function encodeAgentImage(source: Parameters<typeof imageToDataUrl>[0], de
         const result = canvas.toDataURL("image/png");
         if (result.length > 6 * 1024 * 1024) throw new Error("该区域超过本次看图预算，请缩小裁剪范围后继续检查。");
         return result;
-    } finally { canvas.width = 0; canvas.height = 0; image.src = ""; }
+    } finally {
+        canvas.width = 0;
+        canvas.height = 0;
+        image.src = "";
+    }
 }

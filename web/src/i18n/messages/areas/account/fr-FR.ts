@@ -124,6 +124,11 @@ export const frFR: DeepStringRecord<typeof zhCN> = {
             cleanUp: "Nettoyer les ressources",
             buy: "Acheter de l'espace",
         },
+        secureContext: {
+            title: "Cette adresse n'est pas en HTTPS",
+            description:
+                "En HTTP simple, le navigateur n'expose ni Web Crypto ni Web Locks. Les résultats générés sont enregistrés via un repli compatible, mais deux onglets traitant la même tâche peuvent écrire la ressource deux fois, et la connexion sécurisée du runtime local est indisponible. Préférez HTTPS ou localhost.",
+        },
         oss: {
             loadFailed: "Échec du chargement de la configuration du stockage objet personnel",
             loginRequired: "Connectez-vous pour configurer votre stockage objet personnel.",

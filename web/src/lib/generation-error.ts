@@ -13,12 +13,25 @@ const DEFAULT_GENERATION_ERROR_MESSAGE = "生成失败，请稍后重试。";
 const NETWORK_ERROR_MESSAGE = "网络异常。";
 const MODEL_CAPABILITY_ERROR_MESSAGE = "所选模型不支持当前生成方式或输入，请切换模型或调整输入后重试。";
 const MODEL_PARAMETER_ERROR_MESSAGE = "当前模型不支持这组参数或参考素材，请调整输入或切换模型后重试。";
-const MODEL_SERVICE_ERROR_MESSAGE = "模型服务处理失败，请稍后重试或换用其他模型。";
+/**
+ * 上游技术失败与纯技术文本的统一兜底文案。导出是因为界面需要判断“这句话是不是被收敛过的通用原因”：
+ * 旧版本记录只留下了它，再拿去解释“结果待同步”会自相矛盾。
+ */
+export const MODEL_SERVICE_FAILURE_MESSAGE = "模型服务处理失败，请稍后重试或换用其他模型。";
+
+// 生成结果保存依赖浏览器能力（Web Crypto、Web Locks、IndexedDB）。Web Crypto 缺失现在
+// 会走纯 JS 摘要兜底，所以这些文案主要用于两类情况：旧版本留在历史里的失败记录，
+// 以及真实的本地存储写入失败。两者都不该被说成“模型问题”，更不该引导重新生成。
+export const INSECURE_CONTEXT_MESSAGE = "这次结果生成时浏览器缺少保存所需的 Web Crypto（通常是 HTTP 明文地址）。作品仍在后台，点“重新获取结果”即可取回，不需要重新生成。";
+export const BROWSER_STORAGE_MESSAGE = "浏览器本地存储写入失败（可能空间不足或被清理）。作品可能已生成，请清理浏览器数据后再点“重新获取结果”。";
+
+const INSECURE_CONTEXT_ERROR_PATTERN = /crypto\.subtle|web\s*crypto|crypto\s*is\s*not\s*defined|secure\s*context|navigator\.locks|web\s*locks|reading\s*'digest'|reading\s*"digest"|reading\s*'subtle'/i;
+const BROWSER_STORAGE_ERROR_PATTERN = /quotaexceeded|failed\s+to\s+execute\s+'(?:setitem|put)'|indexeddb|idbfactory|invalidstateerror|datacloneerror|transaction\s+inactive/i;
 
 const REASON_MESSAGES: Record<string, string> = {
     model_price_not_configured: "当前模型暂未配置价格，请换用其他模型或联系管理员。",
     model_route_unavailable: "当前模型暂时没有可用渠道，请稍后重试或换用其他模型。",
-    provider_request_failed: MODEL_SERVICE_ERROR_MESSAGE,
+    provider_request_failed: MODEL_SERVICE_FAILURE_MESSAGE,
     model_catalog_mismatch: "模型配置已更新，请重新选择模型后再试。",
     invalid_model_selection: "模型选择无效，请重新选择模型后再试。",
     quota_exceeded: "积分或额度不足，请充值后再试。",
@@ -79,6 +92,11 @@ export function generationErrorMessage(error: unknown) {
     const raw = sanitizeUserVisibleError(original);
     if (isContentModerationError(raw)) return contentModerationMessage(raw);
 
+    // 先判定浏览器侧失败：这类错误是英文技术文本（例如 “Cannot read properties of undefined (reading 'digest')”），
+    // 不拦截就会被下面的技术文本规则统一改写成“模型服务处理失败”，把部署问题误导成模型问题。
+    const browserFailure = browserCapabilityFailureMessage(original) || browserCapabilityFailureMessage(raw);
+    if (browserFailure) return browserFailure;
+
     const reason = structuredErrorReason(error);
     if (reason === "model_capability_not_supported") return MODEL_CAPABILITY_ERROR_MESSAGE;
     if (reason === "invalid_argument" && isModelCapabilityFailure(raw)) return MODEL_CAPABILITY_ERROR_MESSAGE;
@@ -101,12 +119,30 @@ export function generationErrorMessage(error: unknown) {
     if (isModelCapabilityFailure(displayMessage)) return MODEL_CAPABILITY_ERROR_MESSAGE;
     if (isModelParameterFailure(displayMessage)) return MODEL_PARAMETER_ERROR_MESSAGE;
     if (keepsProviderDetail(displayMessage)) return displayMessage;
-    if (isTechnicalProviderMessage(displayMessage)) return MODEL_SERVICE_ERROR_MESSAGE;
+    if (isTechnicalProviderMessage(displayMessage)) return MODEL_SERVICE_FAILURE_MESSAGE;
     return displayMessage || DEFAULT_GENERATION_ERROR_MESSAGE;
 }
 
 function contentModerationMessage(raw: string) {
     return CONTENT_MODERATION_MESSAGE;
+}
+
+/** 浏览器能力缺失/本地存储失败，返回面向部署的说明；不是这类失败时返回空串。 */
+function browserCapabilityFailureMessage(value: string) {
+    const text = value.trim();
+    if (!text) return "";
+    // 已经收敛过的文案也要能识别：消息里的 error 存的是映射后的文字。
+    if (text === INSECURE_CONTEXT_MESSAGE || INSECURE_CONTEXT_ERROR_PATTERN.test(text)) return INSECURE_CONTEXT_MESSAGE;
+    if (text === BROWSER_STORAGE_MESSAGE || BROWSER_STORAGE_ERROR_PATTERN.test(text)) return BROWSER_STORAGE_MESSAGE;
+    return "";
+}
+
+/**
+ * 是否是“作品已生成、但当前页面存不下来”的浏览器侧失败。
+ * 界面据此换掉“重新生成”引导：这类失败换模型、重新生成都没用，作品已经在后台。
+ */
+export function isBrowserLocalSaveFailure(value: unknown) {
+    return Boolean(browserCapabilityFailureMessage(value instanceof Error ? value.message : String(value || "")));
 }
 
 function sanitizeUserVisibleError(value: string) {

@@ -124,6 +124,11 @@ export const enUS: DeepStringRecord<typeof zhCN> = {
             cleanUp: "Clean up assets",
             buy: "Buy storage",
         },
+        secureContext: {
+            title: "This address isn't HTTPS",
+            description:
+                "Over plain HTTP the browser doesn't expose Web Crypto and Web Locks. Generated results are still saved with a compatible fallback, but two tabs handling the same task may write the asset twice, and the local runtime's secure connection is unavailable. Prefer HTTPS or localhost.",
+        },
         oss: {
             loadFailed: "Failed to load personal object storage settings",
             loginRequired: "Sign in to configure personal object storage.",

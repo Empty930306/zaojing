@@ -122,6 +122,10 @@ export const zhCN = {
             cleanUp: "清理素材",
             buy: "购买空间",
         },
+        secureContext: {
+            title: "当前地址不是 HTTPS",
+            description: "明文 HTTP 下浏览器不提供 Web Crypto 与 Web Locks，生成结果会用兼容方式保存，但多标签同时处理同一任务时可能重复写入素材，本机运行时的安全连接也不可用。建议改用 HTTPS 或 localhost 访问。",
+        },
         oss: {
             loadFailed: "读取个人对象存储配置失败",
             loginRequired: "登录后可配置个人对象存储。",

@@ -124,6 +124,11 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
             cleanUp: "素材を整理",
             buy: "ストレージを購入",
         },
+        secureContext: {
+            title: "このアドレスは HTTPS ではありません",
+            description:
+                "HTTP のまま開くと Web Crypto と Web Locks が使えません。生成結果は互換処理で保存されますが、同じタスクを 2 つのタブで処理すると素材が二重に書き込まれる可能性があり、ローカルランタイムの安全な接続も利用できません。HTTPS か localhost を推奨します。",
+        },
         oss: {
             loadFailed: "個人オブジェクトストレージ設定の読み込みに失敗しました",
             loginRequired: "ログインすると個人オブジェクトストレージを設定できます。",

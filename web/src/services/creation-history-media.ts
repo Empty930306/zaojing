@@ -1,4 +1,5 @@
 import type { CreationMessage } from "@/pages/create/creation-types";
+import { sha256Hex } from "@/lib/sha256";
 import { getImageBlob } from "./image-storage";
 import { getMediaBlob } from "./file-storage";
 import { resourceFileUrl, resourceIdFromStorageKey, uploadResourceFile } from "./api/resources";
@@ -27,7 +28,8 @@ export function creationHistoryMedia(scope: string, signal: AbortSignal, active:
         if (!blob) throw new Error("历史媒体缺少可迁移的本地文件或稳定资源引用，本机原记录已保留");
         const kind = (blob.type || type).startsWith("video/") ? "video" : (blob.type || type).startsWith("audio/") ? "audio" : (blob.type || type).startsWith("image/") ? "image" : "file";
         // Original local keys make retries idempotent across page reloads; inline data uses a digest.
-        const digest = key || Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())), (n) => n.toString(16).padStart(2, "0")).join("");
+        // 非安全上下文（http://IP）没有 crypto.subtle，改走同一输出格式的纯 JS 实现。
+        const digest = key || (await sha256Hex(new Uint8Array(await blob.arrayBuffer())));
         assertActive();
         const result = await uploadResourceFile(blob, kind, { idempotencyKey: `creation-history:${digest}`, expectedUserId: scope, signal });
         assertActive();

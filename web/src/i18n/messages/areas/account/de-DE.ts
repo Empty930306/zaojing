@@ -124,6 +124,11 @@ export const deDE: DeepStringRecord<typeof zhCN> = {
             cleanUp: "Assets aufräumen",
             buy: "Speicher kaufen",
         },
+        secureContext: {
+            title: "Diese Adresse ist kein HTTPS",
+            description:
+                "Über einfaches HTTP stellt der Browser weder Web Crypto noch Web Locks bereit. Generierte Ergebnisse werden über eine kompatible Ersatzlösung gespeichert, aber zwei Tabs mit derselben Aufgabe können das Asset doppelt schreiben, und die sichere Verbindung der lokalen Runtime ist nicht verfügbar. Nutze HTTPS oder localhost.",
+        },
         oss: {
             loadFailed: "Einstellungen für persönlichen Objektspeicher konnten nicht geladen werden",
             loginRequired: "Melden Sie sich an, um persönlichen Objektspeicher einzurichten.",

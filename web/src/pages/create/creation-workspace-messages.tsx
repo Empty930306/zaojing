@@ -10,7 +10,7 @@ import { MessageReasoning } from "@/components/ai/message-reasoning";
 import { AIMessageMarkdown } from "@/components/ai/ai-message-markdown";
 import { WorkingDots } from "@/components/ai/working-indicator";
 import { UserAvatar } from "@/components/layout/user-avatar";
-import { generationErrorMessage } from "@/lib/generation-error";
+import { generationErrorMessage, isBrowserLocalSaveFailure, MODEL_SERVICE_FAILURE_MESSAGE } from "@/lib/generation-error";
 import { isGenerationCostUncertainError } from "@/lib/canvas/canvas-generation-batch";
 import { generationPhaseHint, generationPhaseLabel, generationPhaseStep, generationTaskPhase, generationTaskSavingState, generationTaskShowsProgress, type GenerationPhase } from "@/lib/generation-task-display";
 import { useTaskElapsed } from "@/hooks/use-task-elapsed";
@@ -154,6 +154,7 @@ function creationMessageState(item: CreationMessage): { tone: CreationMessageSta
     if (item.status === "pending" || item.status === "streaming") return item.syncInterrupted ? { tone: "syncing", label: "重新连接中" } : item.status === "pending" ? { tone: "pending", label: "生成中" } : null;
     if (item.status === "cancelled") return { tone: "cancelled", label: "已停止" };
     if (item.status === "error") {
+        if (isBrowserLocalSaveFailure(item.error)) return { tone: "sync", label: "结果待保存" };
         if (creationMessageNeedsResultSync(item)) return { tone: "sync", label: "结果待同步" };
         if (item.mediaRecoverable) return { tone: "sync", label: "保存未完成" };
         return isGenerationCostUncertainError(item.error) ? { tone: "sync", label: "费用待核对" } : { tone: "error", label: "生成失败" };
@@ -564,6 +565,9 @@ function creationPendingSpecs(item: CreationMessage) {
  * 失败卡片按“下一步该做什么”分四类：
  * 作品可能已生成（页面没拿到结果）→ 重新获取；作品已生成但保存失败 → 重新保存；
  * 上游网关超时等费用不确定的失败 → 先核对再决定；后端确认失败 → 重新生成。
+ *
+ * 浏览器侧保存失败（HTTP 明文地址缺少 Web Crypto、本地存储写满）单独一类：
+ * 作品已在后台，换模型或重新生成都不会让它显示出来，主按钮只留“重新获取结果”。
  */
 function CreationMediaFailure({ item, refreshing, onRefresh, onRecoverMedia, onRetry }: { item: CreationMessage; refreshing: boolean; onRefresh: () => void; onRecoverMedia: () => void; onRetry: () => void }) {
     const reason = generationErrorMessage(item.error || "生成失败");
@@ -582,14 +586,33 @@ function CreationMediaFailure({ item, refreshing, onRefresh, onRecoverMedia, onR
             />
         );
     }
+    if (isBrowserLocalSaveFailure(item.error)) {
+        return (
+            <CreationMediaNotice
+                tone="warning"
+                icon={CloudOff}
+                title="结果没能保存到素材库"
+                description={reason}
+                detail="作品已经在后台，换模型或重新生成都不会让它出现在页面里，只会再产生一次费用。"
+                actions={
+                    <CreationNoticeButton primary icon={RefreshCw} busy={refreshing} busyLabel="正在获取" onClick={onRefresh}>
+                        重新获取结果
+                    </CreationNoticeButton>
+                }
+            />
+        );
+    }
     if (creationMessageNeedsResultSync(item)) {
+        // 旧版本记录没有 errorKind，失败原因只留下被收敛过的“模型服务处理失败”。
+        // 它和“作品可能已生成”自相矛盾（同一句原因只可能来自任务失败），不能直接把这句话当原因展示。
+        const staleReason = reason === MODEL_SERVICE_FAILURE_MESSAGE;
         return (
             <CreationMediaNotice
                 tone="warning"
                 icon={CloudOff}
                 title="结果暂未同步"
                 description="作品可能已在后台生成，只是页面没有及时拿到。重新获取不会重新生成，也不会重复扣费。"
-                detail={reason ? `原因：${reason}` : undefined}
+                detail={staleReason ? "这条记录来自旧版本，失败原因没有保留下来。任务是否已生成请以任务中心的状态为准。" : reason ? `原因：${reason}` : undefined}
                 actions={
                     <>
                         <CreationNoticeButton primary icon={RefreshCw} busy={refreshing} busyLabel="正在获取" onClick={onRefresh}>

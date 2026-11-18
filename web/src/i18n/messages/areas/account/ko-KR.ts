@@ -124,6 +124,11 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
             cleanUp: "소재 정리",
             buy: "공간 구매",
         },
+        secureContext: {
+            title: "이 주소는 HTTPS가 아닙니다",
+            description:
+                "HTTP로 열면 Web Crypto와 Web Locks를 사용할 수 없습니다. 생성 결과는 호환 방식으로 저장되지만 같은 작업을 두 탭에서 처리하면 자료가 두 번 기록될 수 있고, 로컬 런타임의 안전한 연결도 사용할 수 없습니다. HTTPS 또는 localhost를 권장합니다.",
+        },
         oss: {
             loadFailed: "개인 오브젝트 스토리지 설정을 불러오지 못했습니다",
             loginRequired: "로그인하면 개인 오브젝트 스토리지를 설정할 수 있습니다.",

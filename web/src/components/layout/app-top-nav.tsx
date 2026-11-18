@@ -9,6 +9,7 @@ import { readWorkspaceSidebarCollapsed, writeWorkspaceSidebarCollapsed } from "@
 import { WorkspaceTopBar } from "@/components/layout/workspace-top-bar";
 import { WorkspaceTopBarExtensionProvider } from "@/components/layout/workspace-top-bar-extension";
 import { WorkspaceStorageLimitNotice } from "@/components/layout/workspace-storage-limit-notice";
+import { WorkspaceSecureContextNotice } from "@/components/layout/workspace-secure-context-notice";
 import { WorkspaceWalletHost } from "@/components/layout/workspace-wallet-modal";
 import { GenerationSuccessNotifier } from "@/components/layout/generation-success-notifier";
 import { useWorkspaceDocumentTitle } from "@/hooks/use-workspace-document-title";
@@ -120,6 +121,7 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
             </WorkspaceTopBarExtensionProvider>
             <WorkspaceWalletHost />
             <WorkspaceStorageLimitNotice />
+            <WorkspaceSecureContextNotice />
             <GenerationSuccessNotifier />
             <ModelSetupGuide hidden={pathname === "/login" || pathname === "/register" || pathname.startsWith("/admin")} />
         </>

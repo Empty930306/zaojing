@@ -35,3 +35,27 @@ describe("safe upstream error details", () => {
         expect(generationErrorMessage("模型服务请求失败；上游：https://private.test")).toBe("模型服务请求失败");
     });
 });
+
+describe("浏览器侧失败不能伪装成模型失败", () => {
+    // 事故：http://IP 部署没有 crypto.subtle，保存生成素材抛 TypeError，
+    // 被技术文本规则改写成“模型服务处理失败”，用户以为换模型即可（实际作品已在后台）。
+    test("缺少 Web Crypto 时说明浏览器限制，并只引导重新获取", () => {
+        const error = new TypeError("Cannot read properties of undefined (reading 'digest')");
+        const message = generationErrorMessage(error);
+        expect(message).toContain("Web Crypto");
+        expect(message).toContain("重新获取结果");
+        expect(message).not.toContain("模型");
+    });
+    test("crypto 未定义与缺少 Web Locks 同样不落到模型文案", () => {
+        expect(generationErrorMessage(new Error("crypto is not defined"))).toContain("Web Crypto");
+        expect(generationErrorMessage("Cannot read properties of undefined (reading 'request')  navigator.locks")).toContain("Web Crypto");
+    });
+    test("本地存储写满时提示清理浏览器数据，而不是换模型", () => {
+        const error = new Error("Failed to execute 'setItem' on 'Storage': QuotaExceededError");
+        expect(generationErrorMessage(error)).toContain("清理浏览器数据");
+        expect(generationErrorMessage(error)).not.toContain("模型服务处理失败");
+    });
+    test("真正的上游失败仍然走模型服务文案", () => {
+        expect(generationErrorMessage("invalid_request_error: unsupported media payload")).toBe("模型服务处理失败，请稍后重试或换用其他模型。");
+    });
+});

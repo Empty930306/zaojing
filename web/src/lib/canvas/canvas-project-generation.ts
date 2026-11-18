@@ -10,6 +10,7 @@ import { normalizeVideoDuration, normalizeVideoResolution } from "@/lib/video-ge
 import { modelCapabilityConfigFor, workflowFieldCurrentValue, workflowFieldHasStoredValue, workflowFieldKey, workflowFieldRandomKey, workflowFieldSubmissionValue, workflowOutputSizeValue, workflowVideoFieldsFromJson } from "@/lib/model-capabilities";
 import { modelRequestOptions, resolveCompatibleModel, resolveModelGenerationDefaults, resolveVideoOperation, type ModelGenerationDefaults, type ModelRequirements } from "@/lib/model-selection";
 import { currentGenerationBatchLimit } from "@/lib/generation-batch-limit";
+import { sha256HexOf } from "@/lib/sha256";
 import { imageMetadata } from "@/lib/canvas/canvas-generation-task-sync";
 import { producedModelCandidateForGeneration } from "@/lib/canvas/produced-model";
 import { ensureMediaNodeMinimumSize } from "@/lib/canvas/canvas-node-size";
@@ -141,9 +142,8 @@ export type GenerationRetryContext = {
 };
 
 export async function createGenerationRetryContext(retryOf: string, attemptGroupId = retryOf): Promise<GenerationRetryContext> {
-    const bytes = new TextEncoder().encode(`generation-retry\0${attemptGroupId}\0${retryOf}`);
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-    const hex = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    // 重试幂等键同样要跨安全/非安全上下文稳定：http://IP 部署没有 Web Crypto。
+    const hex = await sha256HexOf(`generation-retry\0${attemptGroupId}\0${retryOf}`);
     return { retryOf, attemptGroupId, clientOperationId: `retry:${hex}` };
 }
 

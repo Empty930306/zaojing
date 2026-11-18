@@ -1,5 +1,6 @@
 import { canonicalize } from "json-canonicalize";
 import type { CanvasProject } from "@/stores/canvas/use-canvas-store";
+import { sha256Hex } from "@/lib/sha256";
 
 // These fields describe local viewing / synchronization, not an edit to the document.
 export function canvasContentSnapshot(project: CanvasProject) {
@@ -66,10 +67,8 @@ function sameContentReferences(a: ContentSnapshot, b: ContentSnapshot) {
 
 async function hashContent(content: ContentSnapshot) {
     const serialized = canonicalize(content);
-    // LAN HTTP deployments may lack Web Crypto. Keep an exact baseline there;
-    // a lossy checksum could incorrectly discard an unsaved draft during login.
-    if (!globalThis.crypto?.subtle) return `json:${serialized}`;
-    const bytes = new TextEncoder().encode(serialized);
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+    // LAN HTTP deployments may lack Web Crypto. hashContent feeds canvas conflict detection,
+    // so it must still produce a stable digest there instead of falling back to a huge
+    // JSON-prefixed string (slow comparisons, different baseline shape after HTTPS).
+    return sha256Hex(new TextEncoder().encode(serialized));
 }
