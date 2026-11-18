@@ -25,29 +25,47 @@
     width: min(960px, 100%);
     margin-inline: auto;
 }
+/* 主副标题居中堆叠：主标题极细大字重，副标题宽字距弱化，对齐截图 1 的层级语言。
+   历史对话按钮绝对定位到右上角，不参与居中排布。 */
 .creation-start-heading {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    margin-bottom: var(--space-5);
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-bottom: var(--space-8);
+    text-align: center;
 }
 .creation-start-heading h1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.42em;
     margin: 0;
     color: var(--user-ink);
-    font-size: var(--typ-display-sm);
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.3;
+    font-size: clamp(var(--typ-display-md), 3.2vw, var(--typ-display-lg));
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+}
+/* 品牌名比定位语实一档，形成主次而不是两个等重的短语。 */
+.creation-start-heading-brand {
+    font-weight: 400;
 }
 .creation-start-heading p {
-    margin: var(--space-1) 0 0;
+    margin: 0;
     color: var(--user-ink-muted);
-    font-size: var(--fs-caption);
+    font-size: var(--fs-body);
+    letter-spacing: 0.08em;
     line-height: 1.6;
 }
-/* 与工作台文字按钮同一语言：透明底、弱化文字，hover 只换表面。 */
+/* 与工作台文字按钮同一语言：透明底、弱化文字，hover 只换表面。
+   标题居中排布，按钮脱离文档流贴右上角，避免挤偏标题。 */
 .creation-history-entry {
+    position: absolute;
+    top: 0;
+    inset-inline-end: 0;
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -312,12 +330,19 @@
         padding: var(--space-4) var(--space-4) var(--space-8);
     }
     .creation-start-heading {
-        align-items: flex-start;
+        align-items: center;
         margin-bottom: var(--space-4);
+        /* 给右上角的历史按钮让出安全区，长标题折行时不钻到图标下面。 */
+        padding-inline: calc(var(--space-8) + var(--space-3));
         gap: var(--space-2);
     }
     .creation-start-heading h1 {
         font-size: var(--fs-title);
+        font-weight: 300;
+    }
+    .creation-start-heading p {
+        font-size: var(--fs-label);
+        letter-spacing: 0.06em;
     }
     .creation-history-entry {
         padding: var(--space-2);

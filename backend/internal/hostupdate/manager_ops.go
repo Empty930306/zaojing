@@ -233,7 +233,8 @@ type deploymentImages struct {
 }
 
 func immutableImageRefs(repository, version string) deploymentImages {
-	owner := strings.SplitN(repository, "/", 2)[0]
+	// GHCR 仓库路径只接受小写；GitHub 仓库所有者可能含大写字母。
+	owner := strings.ToLower(strings.SplitN(repository, "/", 2)[0])
 	tag := strings.TrimPrefix(version, "v")
 	return deploymentImages{
 		backend: "ghcr.io/" + owner + "/open-ai-canvas-backend:" + tag,

@@ -1617,9 +1617,9 @@ export default function CreatePage() {
                                     className="creation-floating-prompt"
                                     key="floating-prompt"
                                     style={{ x: "-50%" }}
-                                    initial={{ opacity: 0, y: -12, scale: 0.97 }}
+                                    initial={{ opacity: 0, y: 12, scale: 0.97 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
                                     transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 360, damping: 32, mass: 0.8 }}
                                 >
                                     <PenLine aria-hidden="true" />
@@ -1642,10 +1642,17 @@ export default function CreatePage() {
                         <main ref={threadScrollRef} onScroll={handleThreadScroll} className="creation-home-scroll creation-scrollbar">
                             <section ref={launchpadRef} className="creation-launchpad" aria-label={t("create.page.launchpadLabel")}>
                                 <header className="creation-start-heading">
-                                    <div>
-                                        <h1>{themeHomeHeading || t("create.page.heading", { brand: brandName })}</h1>
-                                        <p>{t("create.page.subheading")}</p>
-                                    </div>
+                                    <h1>
+                                        {themeHomeHeading ? (
+                                            themeHomeHeading
+                                        ) : (
+                                            <>
+                                                <span className="creation-start-heading-brand">{brandName}</span>
+                                                <span>{t("create.page.heading")}</span>
+                                            </>
+                                        )}
+                                    </h1>
+                                    <p>{t("create.page.subheading")}</p>
                                     <button type="button" className="creation-history-entry" aria-label={t("create.page.viewHistory")} aria-expanded={historyOpen} onClick={() => setHistoryOpen(true)}>
                                         <History aria-hidden="true" />
                                         <span>{t("create.history.title")}</span>

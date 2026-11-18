@@ -225,7 +225,7 @@ export const jaJP: DeepStringRecord<typeof zhCN> = {
         quickEditPlaceholder: "アイデアの説明を続ける…",
         expandComposer: "作成エリアを全体表示",
         launchpadLabel: "作成を始める",
-        heading: "{{brand}}とアイデアについて話そう",
+        heading: "あなた専用の AI 映像制作スタジオ",
         subheading: "ひとつの場面、キャラクター、または一言から始めましょう。",
         viewHistory: "履歴を表示",
         hallLoading: "インスピレーションホールを準備中…",

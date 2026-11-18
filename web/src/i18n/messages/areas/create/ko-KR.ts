@@ -225,7 +225,7 @@ export const koKR: DeepStringRecord<typeof zhCN> = {
         quickEditPlaceholder: "창작 아이디어를 계속 설명하세요…",
         expandComposer: "전체 창작 영역 펼치기",
         launchpadLabel: "창작 시작",
-        heading: "{{brand}}와 창작 아이디어를 이야기해 보세요",
+        heading: "나만의 AI 영상 창작 스튜디오",
         subheading: "하나의 장면, 하나의 캐릭터, 혹은 한 문장에서 시작하세요.",
         viewHistory: "대화 기록 보기",
         hallLoading: "영감 홀을 준비하는 중…",
