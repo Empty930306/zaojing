@@ -286,7 +286,15 @@ func (c *taskTerminalCoordinator) handleSuccessWithSettlement(task *model.Task, 
 		settleBilling = settle
 	}
 	if err := settleBilling(); err != nil {
-		uncertainErr := c.billing.MarkBillingUncertain(task.BillingOrderID, "生成成功但积分结算失败："+err.Error())
+		reason := "生成成功但积分结算失败：" + err.Error()
+		if errors.Is(err, repository.ErrBillingUsageUnavailable) {
+			// 文本 Token 计费没有视频那种公式兜底：读不到上游用量只能冻结待核对。
+			// 严格 schema 的上游（Mistral、Azure AI Foundry 等）会拒收宿主补的
+			// stream_options，重试时去掉该字段后不再返回 usage 块；把这条线索写进原因，
+			// 运营核对时才能判断是「该退」还是「该改渠道配置」。
+			reason += "（上游响应未返回用量；流式文本常见于上游拒收 stream_options，导致末帧没有 usage）"
+		}
+		uncertainErr := c.billing.MarkBillingUncertain(task.BillingOrderID, reason)
 		_ = c.logger.log(task.UserID, task.ID, "error", "积分结算失败，已进入待核对", err.Error())
 		completionErr = errors.Join(completionErr, fmt.Errorf("积分结算失败：%w", err))
 		if uncertainErr != nil {

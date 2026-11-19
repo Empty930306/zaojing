@@ -157,37 +157,71 @@ func (s *Service) RecordProxyImageBillingUsage(log model.ApiCallLog, responseBod
 	if order.BillingMode != imagebilling.Mode && order.CostBillingMode != imagebilling.Mode {
 		return nil
 	}
-	var payload struct {
-		Data []struct {
-			URL    string `json:"url"`
-			Base64 string `json:"b64_json"`
-			Size   string `json:"size"`
-			Format string `json:"output_format"`
-		} `json:"data"`
-		Usage map[string]any `json:"usage"`
-	}
-	if err := json.Unmarshal(responseBody, &payload); err != nil {
+	result, err := proxyImageResult(responseBody)
+	if err != nil {
 		return err
 	}
-	result := &protocol.Result{Usage: payload.Usage}
-	for _, item := range payload.Data {
-		if item.URL == "" && item.Base64 == "" {
+	ctx := context.WithValue(context.Background(), providerAnalyticsKey{}, providerAnalyticsContext{Service: s, BillingOrderID: order.ID})
+	return recordProtocolImageUsage(ctx, canvasGenerationInput{Mode: "image"}, protocol.GenerationRequest{Images: make([]protocol.MediaReference, order.ImageInputImages)}, result)
+}
+
+// proxyImageResult 把系统代理返回的图片响应转成计费用结果。
+//
+// 这里必须和视频协议共用嵌套展平：部分中转网关把业务响应逐层包进 data
+// （实测即梦 agent 协议是 data.data.data），原实现只按最外层 struct 解析，
+// 产物与 usage 都会读成空，订单随即因「图片实际用量不可用」落到待核对。
+func proxyImageResult(responseBody []byte) (*protocol.Result, error) {
+	payload, ok := decodeProviderResponsePayload(responseBody)
+	if !ok {
+		return nil, errors.New("图片响应不是有效的 JSON 对象")
+	}
+	mergeNestedDataLevels(payload)
+	usage, _ := payload["usage"].(map[string]any)
+	result := &protocol.Result{Usage: usage}
+	for _, item := range imageResponseItems(payload) {
+		record, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		url := stringField(record, "url")
+		inline := stringField(record, "b64_json")
+		if url == "" && inline == "" {
 			continue
 		}
 		metadata := map[string]any{}
-		if item.Size != "" {
-			metadata["size"] = item.Size
+		if size := stringField(record, "size"); size != "" {
+			metadata["size"] = size
 		}
-		inline := item.Base64
 		if inline != "" && !strings.HasPrefix(inline, "data:") {
 			format := "png"
-			if item.Format == "jpeg" {
+			if stringField(record, "output_format") == "jpeg" {
 				format = "jpeg"
 			}
 			inline = "data:image/" + format + ";base64," + inline
 		}
-		result.Images = append(result.Images, protocol.MediaReference{URL: item.URL, DataURL: inline, Metadata: metadata})
+		result.Images = append(result.Images, protocol.MediaReference{URL: url, DataURL: inline, Metadata: metadata})
 	}
-	ctx := context.WithValue(context.Background(), providerAnalyticsKey{}, providerAnalyticsContext{Service: s, BillingOrderID: order.ID})
-	return recordProtocolImageUsage(ctx, canvasGenerationInput{Mode: "image"}, protocol.GenerationRequest{Images: make([]protocol.MediaReference, order.ImageInputImages)}, result)
+	return result, nil
+}
+
+// imageResponseItems 取图片产物数组。网关可能把 data 再包成对象（data.data），
+// 逐层下探到第一个数组为止；层数上限与 mergeNestedDataLevels 一致，防异常深嵌套。
+func imageResponseItems(payload map[string]any) []any {
+	const maxDepth = 4
+	for depth := 0; depth < maxDepth; depth++ {
+		if items, ok := payload["data"].([]any); ok {
+			return items
+		}
+		nested, ok := payload["data"].(map[string]any)
+		if !ok {
+			break
+		}
+		payload = nested
+	}
+	for _, key := range []string{"images", "output"} {
+		if items, ok := payload[key].([]any); ok {
+			return items
+		}
+	}
+	return nil
 }

@@ -143,10 +143,11 @@ func (s *Service) enrichAPICallLogPayload(log *model.ApiCallLog, payload map[str
 		log.Error = firstNonEmpty(errorMessage, log.Error)
 	}
 	if log.Capability == "image" {
-		if data, ok := payload["data"].([]any); ok {
-			log.MediaCount = len(data)
-		} else if images, ok := payload["images"].([]any); ok {
-			log.MediaCount = len(images)
+		log.MediaCount = len(imageResponseItems(payload))
+		if log.MediaCount == 0 {
+			if images, ok := payload["images"].([]any); ok {
+				log.MediaCount = len(images)
+			}
 		}
 	}
 }
