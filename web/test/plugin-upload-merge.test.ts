@@ -18,7 +18,7 @@ test("plugin upload guards concurrent events and exposes installation failures",
     expect(modal).toContain('message.error(error instanceof Error ? error.message : "安装插件失败")');
     expect(modal).toContain('aria-pressed={activeTab === "install"}');
     expect(modal).toContain('aria-pressed={activeTab === "guide"}');
-    expect(modal).toContain("if (!navigator.clipboard) throw new Error");
+    expect(modal).toContain("copyPlainText(MANIFEST_EXAMPLE)");
     expect(modal).toContain("clearTimeout(copyTimer.current)");
 });
 
