@@ -86,6 +86,9 @@ func (s *Service) enrichAPICallLogPayload(log *model.ApiCallLog, payload map[str
 			}
 		}
 	}
+	// 部分中转网关把业务响应层层包进 data（实测即梦 agent 协议为 data.data.data），
+	// 只展平一层会漏掉深层的 status / usage，导致视频用量退化为本地公式估算。
+	mergeNestedDataLevels(payload)
 	// Responses API 的终态 SSE 把实际响应（包括 usage）放在 response 字段中。
 	if response, ok := payload["response"].(map[string]any); ok {
 		for key, value := range response {
@@ -193,21 +196,41 @@ func applyTextTokenUsage(log *model.ApiCallLog, usage map[string]any) {
 	}
 }
 
-func videoCompletionTokens(payload map[string]any, arkProtocol bool) (int64, bool) {
-	if status, exists := payload["status"]; exists {
-		text, ok := status.(string)
-		status := strings.ToLower(strings.TrimSpace(text))
-		if !ok || (status != "succeeded" && (arkProtocol || (status != "completed" && status != "success"))) {
-			return 0, false
+// mergeNestedDataLevels 逐层向下展平 payload 里的嵌套 data（实测即梦 agent 协议为 data.data.data），
+// 已存在的键不覆盖，保证最外层 status / task_id 等仍按网关原始口径。层数上限用于防异常深嵌套。
+func mergeNestedDataLevels(payload map[string]any) {
+	const maxDepth = 4
+	current := payload
+	for depth := 0; depth < maxDepth; depth++ {
+		nested, ok := current["data"].(map[string]any)
+		if !ok {
+			return
 		}
+		for key, value := range nested {
+			if _, exists := payload[key]; !exists {
+				payload[key] = value
+			}
+		}
+		current = nested
+	}
+}
+
+func videoCompletionTokens(payload map[string]any, arkProtocol bool) (int64, bool) {
+	if status, hasStatus := videoTerminalStatus(payload); hasStatus && !videoUsageSettled(status, arkProtocol) {
+		return 0, false
 	}
 	usage, _ := payload["usage"].(map[string]any)
 	value, exists := usage["completion_tokens"]
 	if !exists && !arkProtocol {
 		value, exists = usage["output_tokens"]
 	}
+	// 按固定优先级取值；每一档都要同步 exists，否则后续档位会把已取到的值覆盖成 nil。
 	if !exists {
-		value = usage["total_tokens"]
+		value, exists = usage["total_tokens"]
+	}
+	// 部分中转网关（实测即梦 agent 协议）只回 actual_token，不在 OpenAI 与方舟的字段名内。
+	if !exists {
+		value, exists = usage["actual_token"]
 	}
 	// completion_tokens 一旦返回就是唯一结算依据，非法值不能用 total_tokens 掩盖。
 	// JSON Number 保留整数精度，避免浮点取整把小数或超出 int64 的值变成可计费用量。
@@ -220,6 +243,40 @@ func videoCompletionTokens(payload map[string]any, arkProtocol bool) (int64, boo
 		return 0, false
 	}
 	return tokens, true
+}
+
+// videoTerminalStatus 读取终态字段。网关除了 status 还可能用 state / task_status，
+// 且终态值可能写成大写 SUCCESS，这里统一小写归一。hasStatus 为 false 表示响应未带状态字段，
+// 此时沿用旧行为继续尝试解析 usage。
+func videoTerminalStatus(payload map[string]any) (status string, hasStatus bool) {
+	for _, key := range []string{"status", "state", "task_status"} {
+		value, exists := payload[key]
+		if !exists {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			// 状态字段存在但不是字符串：判定为非终态，避免用脏数据计费。
+			return "", true
+		}
+		return strings.ToLower(strings.TrimSpace(text)), true
+	}
+	return "", false
+}
+
+func videoUsageSettled(status string, arkProtocol bool) bool {
+	if status == "succeeded" {
+		return true
+	}
+	// 方舟原生视频协议只认 succeeded，其余状态一律不计费。
+	if arkProtocol {
+		return false
+	}
+	switch status {
+	case "completed", "success", "finished", "done":
+		return true
+	}
+	return false
 }
 
 func providerResponsePayloads(responseBody []byte) []map[string]any {

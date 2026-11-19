@@ -88,3 +88,75 @@ func TestGenericVideoUsageRequiresPositiveFinalIntegerTokens(t *testing.T) {
 		}
 	}
 }
+
+// TestGenericVideoUsageReadsNestedGatewayPayload 覆盖中转网关把业务响应层层包进 data 的真实形态。
+// 实测即梦 agent 协议为 data.data.data.{status,usage.actual_token}，此前只展平一层，
+// usage 完全读不到，视频结算退化为本地公式估算并与上游账单不一致。
+func TestGenericVideoUsageReadsNestedGatewayPayload(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		payload string
+		want    int64
+	}{
+		{
+			name:    "jimeng actual_token three levels deep",
+			payload: `{"code":"success","data":{"action":"generate","data":{"code":"0","data":{"status":"SUCCESS","usage":{"actual_token":30600,"withhold_token":30600}}}}}`,
+			want:    30600,
+		},
+		{
+			name:    "jimeng five second task",
+			payload: `{"data":{"data":{"data":{"status":"SUCCESS","usage":{"actual_token":25500}}}}}`,
+			want:    25500,
+		},
+		{
+			name:    "state field instead of status",
+			payload: `{"data":{"data":{"state":"completed","usage":{"completion_tokens":12000}}}}`,
+			want:    12000,
+		},
+		{
+			name:    "task_status field instead of status",
+			payload: `{"data":{"data":{"task_status":"finished","usage":{"output_tokens":8000}}}}`,
+			want:    8000,
+		},
+		{
+			name:    "nested running task is not billable",
+			payload: `{"data":{"data":{"data":{"status":"RUNNING","usage":{"actual_token":30600}}}}}`,
+			want:    0,
+		},
+		{
+			name:    "nested failed task is not billable",
+			payload: `{"data":{"data":{"data":{"status":"failed","usage":{"actual_token":30600}}}}}`,
+			want:    0,
+		},
+		{
+			name:    "non-string status is not billable",
+			payload: `{"data":{"data":{"status":true,"usage":{"actual_token":30600}}}}`,
+			want:    0,
+		},
+		{
+			name:    "actual_token must stay integer",
+			payload: `{"data":{"data":{"status":"SUCCESS","usage":{"actual_token":1.5}}}}`,
+			want:    0,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			log := &model.ApiCallLog{Capability: "video", Path: "/v1/video/generations/task-1"}
+			(&Service{}).EnrichAPICallLog(log, []byte(test.payload))
+			if log.OutputTokens != test.want || log.UsageAvailable != (test.want > 0) {
+				t.Fatalf("payload=%s output=%d available=%v want=%d", test.payload, log.OutputTokens, log.UsageAvailable, test.want)
+			}
+			if log.InputTokens != 0 || log.CachedTokens != 0 {
+				t.Fatalf("video usage contaminated by text tokens: %#v", log)
+			}
+		})
+	}
+}
+
+// TestGenericVideoUsageKeepsOuterFieldsWhenFlattening 确保逐层展平不覆盖网关最外层的同名字段。
+func TestGenericVideoUsageKeepsOuterFieldsWhenFlattening(t *testing.T) {
+	log := &model.ApiCallLog{Capability: "video", Path: "/v1/video/generations/task-1"}
+	(&Service{}).EnrichAPICallLog(log, []byte(`{"status":"running","data":{"data":{"status":"SUCCESS","usage":{"actual_token":30600}}}}`))
+	if log.UsageAvailable || log.OutputTokens != 0 {
+		t.Fatalf("outer running status must win over nested success: %#v", log)
+	}
+}
