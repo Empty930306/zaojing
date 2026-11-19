@@ -3,6 +3,7 @@ import { App, Button, Input, Modal, Spin } from "antd";
 import { Copy, Link2, RefreshCw, Share2, Unlink } from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
+import { copyPlainText } from "@/lib/clipboard";
 import { createCanvasShare, deleteCanvasShare, getCanvasShare, type CanvasShareStatus } from "@/services/api/canvas-share";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { Select } from "@/components/ui/base/select";
@@ -34,8 +35,8 @@ export function CanvasShareModal({ projectId, open, onClose, beforeCreate }: { p
 
     const copy = async (value = shareUrl) => {
         if (!value) return;
-        await navigator.clipboard.writeText(value);
-        message.success("分享链接已复制");
+        if (await copyPlainText(value)) message.success("分享链接已复制");
+        else message.error("复制失败，请手动选择链接");
     };
 
     const create = async (rotate = false) => {

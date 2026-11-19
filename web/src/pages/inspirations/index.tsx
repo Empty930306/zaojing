@@ -8,6 +8,7 @@ import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { Select } from "@/components/ui/base/select";
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { copyPlainText } from "@/lib/clipboard";
 import { catalogIdOf, inspirationSourceOf, inspirationSources, type CreationInspiration, type InspirationSourceId } from "@/lib/inspirations/catalog";
 import { isFreshInspiration, localDayKey, orderInspirationsByLatest, orderInspirationsForToday } from "@/lib/inspirations/daily-order";
 import { isCustomInspiration, resolveInspirations } from "@/lib/inspirations/resolve";
@@ -283,11 +284,9 @@ export function InspirationHall({ onUse }: { onUse: (item: CreationInspiration) 
     );
 
     const handleCopy = useCallback(
-        (text: string, label: string) => {
-            void navigator.clipboard.writeText(text).then(
-                () => message.success(`${label}已复制`),
-                () => message.error("复制失败，请手动选中文本"),
-            );
+        async (text: string, label: string) => {
+            if (await copyPlainText(text)) message.success(`${label}已复制`);
+            else message.error("复制失败，请手动选中文本");
         },
         [message],
     );

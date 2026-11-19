@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
 
+import { copyPlainText } from "@/lib/clipboard";
+
 type AiMessageCodeBlockProps = {
     children?: ReactNode;
     className?: string;
@@ -144,10 +146,12 @@ export function AiMessageCodeBlock({ children, className, isStreaming = false, .
 
     const handleCopy = () => {
         const payload = codeText.trimEnd();
-        void navigator.clipboard?.writeText(payload).catch(() => {});
-        setCopied(true);
-        window.clearTimeout(timerRef.current);
-        timerRef.current = window.setTimeout(() => setCopied(false), 1600);
+        void copyPlainText(payload).then((copied) => {
+            if (!copied) return;
+            setCopied(true);
+            window.clearTimeout(timerRef.current);
+            timerRef.current = window.setTimeout(() => setCopied(false), 1600);
+        });
     };
 
     return (

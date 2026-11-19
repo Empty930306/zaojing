@@ -5,6 +5,7 @@ import { AntTooltip as Tooltip } from "@/components/ui/base/tooltip/ant-tooltip"
 import { AlertTriangle, Box, Brush, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Film, Info, Loader2, MessageCircle, Pencil, Play, Plus, RotateCcw, Trash2, X, PenLine } from "lucide-react";
 
 import { AppModal } from "@/components/ui/product/app-modal";
+import { copyPlainText } from "@/lib/clipboard";
 import { TRANSITION_LABEL } from "@/lib/drama/storyboard";
 import type { DramaCast, DramaEpisodeDetail, DramaModelChoice, DramaSegment, DramaSegmentReferencePatch, DramaShot, DramaShotPatch, DramaTake, DramaTransition } from "@/services/api/drama";
 import { ReferenceBoard } from "./segment-references";
@@ -360,12 +361,10 @@ function SegmentToolbar({
                     size="small"
                     icon={<Copy className="size-3.5" />}
                     disabled={!segment.videoPrompt}
-                    onClick={() =>
-                        void navigator.clipboard.writeText(sent).then(
-                            () => message.success("已复制提示词"),
-                            () => message.error("复制失败"),
-                        )
-                    }
+                    onClick={async () => {
+                        if (await copyPlainText(sent)) message.success("已复制提示词");
+                        else message.error("复制失败");
+                    }}
                 >
                     复制提示词
                 </Button>

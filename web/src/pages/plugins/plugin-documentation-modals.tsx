@@ -3,6 +3,7 @@ import { CloudUpload, FileText, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { RegisteredPlugin } from "@/lib/plugins/plugin-types";
+import { copyPlainText } from "@/lib/clipboard";
 
 import pluginDevelopmentGuideMarkdown from "./plugin-development-guide.md?raw";
 import { getPluginDocumentation } from "./plugin-documentation";
@@ -73,16 +74,17 @@ export function UploadPluginModal({ open, onClose, onUpload }: UploadPluginModal
     };
 
     const copySnippet = async () => {
-        try {
-            if (!MANIFEST_EXAMPLE) throw new Error("开发规范中缺少清单示例");
-            if (!navigator.clipboard) throw new Error("当前环境不支持剪贴板，请从开发规范中手动复制");
-            await navigator.clipboard.writeText(MANIFEST_EXAMPLE);
-            setCopied(true);
-            clearTimeout(copyTimer.current);
-            copyTimer.current = setTimeout(() => setCopied(false), 2000);
-        } catch (error) {
-            message.error(error instanceof Error ? error.message : "复制失败，请手动复制");
+        if (!MANIFEST_EXAMPLE) {
+            message.error("开发规范中缺少清单示例");
+            return;
         }
+        if (!(await copyPlainText(MANIFEST_EXAMPLE))) {
+            message.error("复制失败，请从开发规范中手动复制");
+            return;
+        }
+        setCopied(true);
+        clearTimeout(copyTimer.current);
+        copyTimer.current = setTimeout(() => setCopied(false), 2000);
     };
 
     const isCompact = activeTab === "install";

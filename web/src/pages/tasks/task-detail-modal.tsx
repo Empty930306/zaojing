@@ -7,6 +7,7 @@ import { MediaPreview } from "@/components/media-preview";
 import { AppModal } from "@/components/ui/product/app-modal";
 import { RelativeTime } from "@/components/ui/product/relative-time";
 import { currentLocale, translate } from "@/i18n";
+import { copyPlainText } from "@/lib/clipboard";
 import { generationErrorMessage } from "@/lib/generation-error";
 import { formatTaskKind, generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel, mediaDeliverySummary } from "@/lib/generation-task-display";
 import { progressFillStyle } from "@/lib/progress-fill";
@@ -37,10 +38,9 @@ export function TaskDetailModal({ task, loading, logs, logsLoading, actingId, ca
     const { t } = useTranslation();
     const { message } = App.useApp();
     const copyText = async (value: string) => {
-        try {
-            await navigator.clipboard.writeText(value);
+        if (await copyPlainText(value)) {
             message.success(t("library.tasks.detail.copied"));
-        } catch {
+        } else {
             message.error(t("library.tasks.detail.copyFailed"));
         }
     };

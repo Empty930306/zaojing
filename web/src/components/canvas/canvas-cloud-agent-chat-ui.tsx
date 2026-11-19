@@ -21,6 +21,7 @@ import { agentToolRetry, type AgentToolRetryAttempt } from "@/lib/canvas/agent-t
 import { agentErrorContent } from "@/lib/canvas/agent-error-presentation";
 import { agentCanvasUndoKey, agentCanvasUndoTarget, type AgentCanvasUndoState, type AgentCanvasUndoTarget } from "@/lib/canvas/agent-canvas-undo";
 import type { CloudAgentMediaBatchProgress } from "@/lib/canvas/cloud-agent-media-batch";
+import { copyPlainText } from "@/lib/clipboard";
 import { AgentImagePreview } from "./canvas-cloud-agent-composer";
 
 // 输入区已拆到 canvas-cloud-agent-composer.tsx；附件类型与引用转换在 canvas-cloud-agent-attachments.ts。
@@ -623,29 +624,9 @@ export const AgentChatMessage = memo(function AgentChatMessage({
         </div>
     );
 });
-/** 写入剪贴板：优先用异步剪贴板接口；非 HTTPS 或权限被拒时退回隐藏文本框加 execCommand。 */
+/** 写入剪贴板：安全上下文用异步接口，非 HTTPS 或权限被拒时退回隐藏文本框加 execCommand。 */
 async function writeClipboardText(text: string) {
-    if (navigator.clipboard?.writeText) {
-        try {
-            await navigator.clipboard.writeText(text);
-            return true;
-        } catch {
-            // 继续尝试旧方法。
-        }
-    }
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none";
-    document.body.append(area);
-    area.select();
-    try {
-        return document.execCommand("copy");
-    } catch {
-        return false;
-    } finally {
-        area.remove();
-    }
+    return copyPlainText(text);
 }
 /** 消息下方的「复制」：悬停或键盘聚焦时出现，触屏常显；复制后按钮上显示「已复制」，不弹全局提示。 */
 function AgentMessageCopyButton({ text, align }: { text: string; align: "start" | "end" }) {

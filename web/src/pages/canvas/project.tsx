@@ -20,7 +20,7 @@ import { getResource, getResourceAccess, resolveResourceAccessURL, resourceFileU
 import { uploadImage } from "@/services/image-storage";
 import { imageMetadata } from "@/lib/canvas/canvas-generation-task-sync";
 import { isCanvasImageSourceNode } from "@/lib/canvas/canvas-image-source";
-import copyToClipboard from "copy-to-clipboard";
+import { copyPlainText } from "@/lib/clipboard";
 import { saveAs } from "file-saver";
 import { serializeSrtEntries } from "@/lib/timeline/srt-parser";
 import { nanoid } from "nanoid";
@@ -1876,12 +1876,7 @@ function CanvasViewportPage() {
                         return;
                     } catch (imageErr) {
                         const fallbackUrl = new URL(copySource, window.location.href).toString();
-                        if (navigator.clipboard?.writeText) {
-                            await navigator.clipboard.writeText(fallbackUrl).catch(() => undefined);
-                            message.info("由于浏览器未获得焦点，已为您复制图片地址");
-                            return;
-                        }
-                        if (await copyToClipboard(fallbackUrl)) {
+                        if (await copyPlainText(fallbackUrl)) {
                             message.info("由于浏览器未获得焦点，已为您复制图片地址");
                             return;
                         }
@@ -1889,8 +1884,7 @@ function CanvasViewportPage() {
                     }
                 }
 
-                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(copySource);
-                else if (!copyToClipboard(copySource)) throw new Error("当前浏览器不支持写入剪贴板");
+                if (!(await copyPlainText(copySource))) throw new Error("当前浏览器不支持写入剪贴板");
                 message.success(node.type === CanvasNodeType.Text ? "文本已复制" : "内容链接已复制");
             } catch (error) {
                 message.error(error instanceof Error ? error.message : "复制失败，请检查浏览器剪贴板权限");
@@ -1911,8 +1905,7 @@ function CanvasViewportPage() {
                 const mediaPath = content && !content.startsWith("data:") && !content.startsWith("blob:") ? content : "";
                 const mediaURL = resourceId ? resolveResourceAccessURL((await getResourceAccess(`resource:${resourceId}`, "copy")).url) : mediaPath ? new URL(mediaPath, window.location.href).toString() : "";
                 if (!mediaURL) throw new Error("当前媒体只有本地内容，没有可复制的地址");
-                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(mediaURL);
-                else if (!(await copyToClipboard(mediaURL))) throw new Error("当前浏览器不支持写入剪贴板");
+                if (!(await copyPlainText(mediaURL))) throw new Error("当前浏览器不支持写入剪贴板");
                 message.success(node?.type === CanvasNodeType.Video ? "视频地址已复制" : "图片地址已复制");
             } catch (error) {
                 message.error(error instanceof Error ? error.message : "媒体地址复制失败");
@@ -3600,7 +3593,10 @@ function CanvasViewportPage() {
                                     }
                                 }}
                                 onCopyPrompt={(prompt) => {
-                                    void navigator.clipboard?.writeText(prompt).then(() => message.success("已复制全景提示词"));
+                                    void copyPlainText(prompt).then((copied) => {
+                                        if (copied) message.success("已复制全景提示词");
+                                        else message.error("复制失败，请手动选择文本");
+                                    });
                                 }}
                                 previewImageUrl={panoramaConfigNodeId ? nodes.find((n) => n.id === panoramaConfigNodeId)?.metadata?.content : undefined}
                                 nodes={nodes}

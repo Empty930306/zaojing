@@ -4,6 +4,7 @@ import { AntTooltip as Tooltip } from "@/components/ui/base/tooltip/ant-tooltip"
 import { AlertCircle, CheckCircle2, Clock3, Copy, Crosshair, Loader2, XCircle } from "lucide-react";
 
 import { AppModal } from "@/components/ui/product/app-modal";
+import { copyPlainText } from "@/lib/clipboard";
 import { getDramaJob, type DramaJob, type DramaJobAttempt, type DramaJobTask } from "@/services/api/drama";
 
 import { formatCredits, MediaThumb, useResourceMediaUrl } from "../drama-shared";
@@ -142,11 +143,10 @@ export function JobDetailModal({ projectId, job, onClose, onLocate }: { projectI
 function AttemptCard({ attempt, index, latest }: { attempt: DramaJobAttempt; index: number; latest: boolean }) {
     const { message } = App.useApp();
     const task = attempt.task;
-    const copy = (text: string) =>
-        void navigator.clipboard.writeText(text).then(
-            () => message.success("已复制"),
-            () => message.error("复制失败"),
-        );
+    const copy = async (text: string) => {
+        if (await copyPlainText(text)) message.success("已复制");
+        else message.error("复制失败");
+    };
     return (
         <article className={`drama-jobd-attempt ${latest ? "is-latest" : ""}`}>
             <header>

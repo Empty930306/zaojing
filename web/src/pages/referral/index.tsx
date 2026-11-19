@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Navigate } from "react-router";
 import { PageHeader, PaginationBar, WorkspacePage } from "@/components/layout/workspace-page";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
+import { copyPlainText } from "@/lib/clipboard";
 import { ApiError } from "@/services/api/request";
 import { formatReferralCredits, formatReferralRate, formatReferralYuan, getReferralOverview, listReferralCommissions, listReferralInvitees, referralLink } from "@/services/api/referral";
 import { useUserStore } from "@/stores/use-user-store";
@@ -32,12 +33,8 @@ export default function ReferralPage() {
     const data = overview.data;
     const link = data ? referralLink(data.code) : "";
     const copy = async (value: string, label: string) => {
-        try {
-            await navigator.clipboard.writeText(value);
-            message.success(`${label}已复制`);
-        } catch {
-            message.error("复制失败，请手动选择后复制");
-        }
+        if (await copyPlainText(value)) message.success(`${label}已复制`);
+        else message.error("复制失败，请手动选择后复制");
     };
     const refresh = () => {
         void overview.refetch();

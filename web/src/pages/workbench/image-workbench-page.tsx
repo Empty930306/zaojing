@@ -16,6 +16,7 @@ import { createClientUUID } from "@/lib/client-id";
 import { togglePromptPhrase } from "@/lib/prompt-phrases";
 import { imageQualityLabel } from "@/lib/image-quality";
 import { imageResolutionUsesQuality } from "@/lib/image-size-presets";
+import { copyPlainText } from "@/lib/clipboard";
 import { modelCapabilityConfigFor } from "@/lib/model-capabilities";
 import { preserveImageSettings as normalizeImageValue, preserveVideoSettings as normalizeVideoValue, mediaSettingIssues } from "@/lib/media-settings";
 import { MediaSettingsNotice } from "@/components/media-settings-notice";
@@ -1274,10 +1275,9 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     };
 
     const copyText = async (text: string) => {
-        try {
-            await navigator.clipboard.writeText(text);
+        if (await copyPlainText(text)) {
             message.success("提示词已复制");
-        } catch {
+        } else {
             message.error("复制失败，请手动选择文本复制");
         }
     };

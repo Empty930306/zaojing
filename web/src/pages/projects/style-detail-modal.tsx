@@ -3,6 +3,7 @@ import { App, Button } from "antd";
 import { Check, ChevronLeft, ChevronRight, Copy, Flame, X } from "lucide-react";
 
 import { AppModal } from "@/components/ui/product/app-modal";
+import { copyPlainText } from "@/lib/clipboard";
 import { DRAMA_STYLE_CATEGORIES, DRAMA_STYLE_FORMS, findDramaStyle, parseDramaStyleId, styleCoverBackground } from "@/lib/drama/drama-styles";
 
 const DETAIL_ROWS = [
@@ -50,12 +51,8 @@ export function DramaStyleDetailModal({
 
     const copyPrompt = async () => {
         if (!style) return;
-        try {
-            await navigator.clipboard.writeText(style.prompt);
-            message.success("已复制风格提示词");
-        } catch {
-            message.error("复制失败，请手动选择文本复制");
-        }
+        if (await copyPlainText(style.prompt)) message.success("已复制风格提示词");
+        else message.error("复制失败，请手动选择文本复制");
     };
 
     const active = style?.id === selectedId;

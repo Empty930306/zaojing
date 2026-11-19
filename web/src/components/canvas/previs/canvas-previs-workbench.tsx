@@ -21,6 +21,7 @@ import {
     uniquePrevisName,
 } from "@/lib/canvas/previs/previs-scene";
 import { dropPrevisObjectToGround, groundPrevisScene } from "@/lib/canvas/previs/previs-grounding";
+import { copyPlainText } from "@/lib/clipboard";
 import { type PrevisObject, type PrevisLight, type PrevisShot, type PrevisHumanoidBone, type PrevisQuat, type PrevisKeyframeDeleteTarget, type PrevisKeyframeEasing, type PrevisRig, type PrevisShotSize, type PrevisActorProfile } from "@/types/previs";
 import { resolvePrevisPlacementAnchor, resolvePrevisPlacement, type PrevisGroundPoint } from "@/lib/canvas/previs/previs-placement";
 import { uploadMediaFile } from "@/services/file-storage";
@@ -668,10 +669,9 @@ export function CanvasPrevisWorkbench({
 
     const copyCompiledPrompt = async () => {
         if (!compiledPrompt) return;
-        try {
-            await navigator.clipboard.writeText(compiledPrompt);
+        if (await copyPlainText(compiledPrompt)) {
             message.success("已复制可直接交给视频模型的提示词");
-        } catch {
+        } else {
             message.warning("当前浏览器不允许自动复制，请从提示词预览中手动复制");
         }
     };

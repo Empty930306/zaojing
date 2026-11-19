@@ -4,6 +4,7 @@ import { App, Button, Form, Input, InputNumber, Popconfirm, Space } from "antd";
 import { AdminDrawer, AdminModal } from "@/pages/admin/ui/overlays";
 import { Ban, Copy, KeyRound, TicketCheck } from "lucide-react";
 import { formatCredits } from "@/constant/credits";
+import { copyPlainText } from "@/lib/clipboard";
 import { type AdminRedeemCode, disableAdminRedeemCode, listAdminRedeemBatchCodes, type RedeemBatch } from "@/services/api/wallet";
 import { AdminDataTable, AdminExportButton, AdminStatusBadge, AdminTableEmpty } from "./admin-ui";
 import { useEffect, useRef, useState } from "react";
@@ -217,12 +218,8 @@ export function GeneratedCodesModal({ codes, batchId, onClose }: { codes: string
     const content = codes.join("\n");
     const previewContent = codes.slice(0, GENERATED_PREVIEW_LIMIT).join("\n");
     const copy = async () => {
-        try {
-            await navigator.clipboard.writeText(content);
-            message.success("全部兑换码已复制");
-        } catch {
-            message.error("复制失败，请使用下载 TXT 保存兑换码");
-        }
+        if (await copyPlainText(content)) message.success("全部兑换码已复制");
+        else message.error("复制失败，请使用下载 TXT 保存兑换码");
     };
     return (
         <AdminModal
@@ -312,12 +309,8 @@ export function RedeemBatchCodesModal({ batch, onClose, onBatchChanged }: { batc
 
     const copyCode = async (code?: string) => {
         if (!code) return;
-        try {
-            await navigator.clipboard.writeText(code);
-            message.success("兑换码已复制");
-        } catch {
-            message.error("复制失败，请检查浏览器剪贴板权限");
-        }
+        if (await copyPlainText(code)) message.success("兑换码已复制");
+        else message.error("复制失败，请检查浏览器剪贴板权限");
     };
     const copyPage = async () => {
         const content = codes
@@ -325,12 +318,8 @@ export function RedeemBatchCodesModal({ batch, onClose, onBatchChanged }: { batc
             .filter((code): code is string => Boolean(code))
             .join("\n");
         if (!content) return;
-        try {
-            await navigator.clipboard.writeText(content);
-            message.success("本页兑换码已复制");
-        } catch {
-            message.error("复制失败，请检查浏览器剪贴板权限");
-        }
+        if (await copyPlainText(content)) message.success("本页兑换码已复制");
+        else message.error("复制失败，请检查浏览器剪贴板权限");
     };
     const disableCode = async (item: AdminRedeemCode) => {
         if (!batch || codeMutationsRef.current.has(item.id)) return;
