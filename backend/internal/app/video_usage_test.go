@@ -160,3 +160,27 @@ func TestGenericVideoUsageKeepsOuterFieldsWhenFlattening(t *testing.T) {
 		t.Fatalf("outer running status must win over nested success: %#v", log)
 	}
 }
+
+// TestTextUsageUnaffectedByNestedDataFlatten 确保逐层展平只补齐缺失字段，
+// 文本与图片协议的外层 usage 不会被内层同名字段顶掉（展平对全部能力生效，属共享路径）。
+func TestTextUsageUnaffectedByNestedDataFlatten(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		body string
+		in   int64
+		out  int64
+	}{
+		{"plain usage", `{"usage":{"prompt_tokens":100,"completion_tokens":50}}`, 100, 50},
+		{"one nested level", `{"data":{"usage":{"prompt_tokens":200,"completion_tokens":80}}}`, 200, 80},
+		{"two nested levels", `{"data":{"data":{"usage":{"prompt_tokens":300,"completion_tokens":90}}}}`, 300, 90},
+		{"outer usage wins", `{"usage":{"prompt_tokens":10,"completion_tokens":5},"data":{"data":{"usage":{"prompt_tokens":999,"completion_tokens":999}}}}`, 10, 5},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			log := &model.ApiCallLog{Capability: "text", Path: "/v1/chat/completions", StatusCode: 200}
+			(&Service{}).EnrichAPICallLog(log, []byte(test.body))
+			if log.InputTokens != test.in || log.OutputTokens != test.out {
+				t.Fatalf("got in=%d out=%d, want in=%d out=%d", log.InputTokens, log.OutputTokens, test.in, test.out)
+			}
+		})
+	}
+}
